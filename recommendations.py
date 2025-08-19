@@ -509,14 +509,22 @@ def run_recommendation_analysis(df):
 
 # === Step 2: Generate Category Summaries with GPT ===
 def generate_category_summary(df):
-    
-    subset = df[df["Category"] != "Business"]
+ 
+    subset = df
+    categories = subset["Category"].tolist()
     questions = subset["Question"].tolist()
     answers = subset["Answer"].tolist()
     comments = subset["Comment"].fillna("").tolist() if "Comment" in df.columns else []
 
     prompt = f"""
-    405 error
+    You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity based on their audit responses
+    Provide a summary using the answers and comments for all questions focusing on their current usage marketing maturity in their implementation for Adtech and Martech.
+    Provide the response in a set of bullet points, these will be emailed and need to be understand by sales, marketing and adtech colleagues.
+    Please provide the summary for eacg of the categories provided.
+    Categories: {categories}
+    Questions: {questions}
+    Answers: {answers}
+    Comments: {comments}
     """
 
     client = openai.OpenAI(api_key=st.secrets["OPEN_AI_KEY"])
@@ -535,15 +543,19 @@ def generate_category_summary(df):
 
 def generate_bullet_summary(df):
     
-    subset = df[df["Category"] != "Business"]
+    subset = df
+    categories = subset["Category"].tolist()
     questions = subset["Question"].tolist()
     answers = subset["Answer"].tolist()
     comments = subset["Comment"].fillna("").tolist() if "Comment" in df.columns else []
 
     prompt = f"""
     You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity based on their audit responses
-    Provide a summary using the answers and comments for all questions focusing on their current usage of Google Marketing Platform and their utilization and maturity of the implementation of Adtech and Martech.
+    Provide a summary of each of the categories, using the column categories to group the data, 
+    then using the answers and comments for all questions focusing on their current usage marketing maturity in their implementation for Adtech and Martech.
     Provide the response in a set of bullet points, these will be emailed and need to be understand by sales, marketing and adtech colleagues.
+    
+    Categories: {categories}
     Questions: {questions}
     Answers: {answers}
     Comments: {comments}
@@ -575,15 +587,17 @@ def identify_top_maturity_gaps(df):
     prompt = f"""
 You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity based on their audit responses. 
 Review the following questions, answers, and comments to identify the **most critical marketing maturity gaps**.
-
-A "maturity gap" is a disconnect between the current state and a more advanced, effective stage of marketing capability.
-
+Focus the gaps on these three pillars
+Identify and Eliminate Inefficiencies - Pinpoint overlaps, gaps and underutilized capabilities within your platforms, data and technology setup. This process uncovers opportunities to streamline your platform architecture, reduce wasted investment and unlock additional value from your inventory or first-party data assets.
+Accelerate Innovation & Maturity - Expose maturity gaps that are holding back growth and highlight areas where new tools, approaches or AI-led solutions can be introduced. Ensure your organization stays up to speed with market shifts, embracing  cutting-edge practices, whilst building long-term competitive advantage.
+Develop a Sustainable Growth Roadmap - Translate assessment insights into a prioritized, achievable plan, backed by identification of expertise & resources best positioned to deliver on the changes. This ensures that efficiency gains, capability enhancements and monetization opportunities are implemented effectively and sustained.
 Each maturity gap should include:
 - A concise **Heading** (e.g., "Lack of First-Party Data Activation")
 - A brief 25 words or less **Context** (what the maturity driver is and why it matters)
 - A clear 25 words or less **Impact** (how this gap is affecting the advertiser's performance or strategic outcomes)
 
-Return a list of the gaps as structured objects like:
+
+Return a list of the gaps as structured objects like, ranked where #1 is the most impactful:
 1. **Heading**: ...
    **Context**: ...
    **Impact**: ...
