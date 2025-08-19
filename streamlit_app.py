@@ -3,7 +3,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from recommendation_agent import (
+from recommendations import (
     run_recommendation_analysis,
     generate_category_summary,
     generate_bullet_summary,
@@ -33,9 +33,9 @@ def main():
     formatted_date_time = now.strftime("%Y-%m-%d")
 
     st.image('acx_logo.png', width=100)
-    st.title("GMP Assessment Analysis")
+    st.title("Maturity Matrix or Zero Waste Assessment Analysis")
     st.write(f"The current date and time is: **{formatted_date_time}**")
-    st.write("Upload a CSV file of the results from the GMP Assessment. Step through the process to receive the summary, bullet points, gaps, drivers and recommendations. This tool helps streamline and standardize GMP Assessment analysis.")
+    st.write("Upload a CSV file of the results from the Maturity Matrix. Step through the process to receive the summary, bullet points, gaps, drivers and recommendations. This tool helps streamline and standardize GMP Assessment analysis.")
 
     uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
 
