@@ -18,8 +18,7 @@ def display_breadcrumb(step):
         "1️⃣ Category Summary",
         "2️⃣ Bullet Summary",
         "3️⃣ Maturity Gaps",
-        "4️⃣ Maturity Drivers",
-        "5️⃣ Recommendations"
+        "4️⃣ Service Recommendations"
     ]
     breadcrumb = " ➤ ".join([
         f"**{label}**" if i == step else label
@@ -87,23 +86,13 @@ def main():
                 st.dataframe(st.session_state.maturity_gap_df, use_container_width=True)
 
             if st.session_state.step == 3:
-                if st.button("4️⃣ Identify Maturity Drivers"):
-                    st.session_state.maturity_driver_df = identify_top_maturity_drivers(df)
+                if st.button("4️⃣ Run Service Recommendations Analysis"):
+                    st.session_state.maturity_driver_df = run_recommendation_analysis(df)
                     st.session_state.step = 4
                     st.rerun()
 
             if st.session_state.step >= 4:
-                st.subheader("4️⃣ Maturity Drivers")
-                st.dataframe(st.session_state.maturity_driver_df, use_container_width=True)
-
-            if st.session_state.step == 4:
-                if st.button("5️⃣ Run Recommendations Analysis"):
-                    st.session_state.recommendation_results = run_recommendation_analysis(df)
-                    st.session_state.step = 5
-                    st.rerun()
-
-            if st.session_state.step >= 5:
-                st.subheader("5️⃣ Capability Recommendations")
+                st.subheader("4️⃣ Capability Recommendations")
                 results = st.session_state.recommendation_results
                 if results and results['matched_recommendations']:
                     recommendations_df = pd.DataFrame(results['matched_recommendations'])
@@ -117,9 +106,7 @@ def main():
                         'Recommendation',
                         'Overview',
                         'GMP Utilization Impact',
-                        'Business Impact',
-                        'score',
-                        'maxweight'
+                        'Business Impact'
                     ]
                     display_cols = [col for col in expected_cols if col in recommendations_df.columns]
                     st.session_state.recommendations_df = recommendations_df[display_cols]

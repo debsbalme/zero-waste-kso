@@ -8,322 +8,419 @@ import re
 from fpdf import FPDF
 
 # Define the Recommendation Set as provided in your agent's internal knowledge base
-RECOMMENDATION_SET = [
+[
     {
         "question": "which automated bidding strategies have you used in dv360? please give further context of the performance in the comments section.",
-        "answer": "n/a",
-        "recommendation": "Utilize automated bidding strategies in DV360 to improve campaign agility.",
-        "overview": "Automated bidding in DV360 leverages machine learning to optimize bids in real-time based on various signals like audience, device and contextual data, aligned with business goals like CPA or ROAS.",
-        "gmpimpact": "Implementing automated bidding strategies increases the bidding precision with DV360 and reduces optimization overheads, while aligning campaign delivery with performance goals.",
-        "businessimpact": "Automated bidding strategies provide an additional avenue for advertisers to drive better outcomes across programmatic investments with less manual intervention and improved campaign agility."
-        
+        "answer": "Web analytics and funnel analysis",
+        "type": "negative_choice",
+        "recommendation": "Site Analytics Audit for Customer Experience",
+        "overview": "We recommend conducting a Web Analytics Audit to ensure insights are being collected to identify the full breadth of friction points, drop-offs and gaps in user behavior tracking across your website. Accurate analytics enable data-led decisions to streamline user journeys, improve content relevance and reduce barriers to conversion. This leads to a more efficient customer experience, higher conversion rates and better ROI from existing traffic.",
+        "gap": ""
     },
     {
-        "question": "have you developed or used any of the following custom bidding algorithms in dv360? please give further context of the objectives and performance in the comments section.",
-        "answer": "n/a",
-        "recommendation": "Utilize custom bidding strategies in DV360 to improve campaign agility",
-        "overview": "Custom Bidding in DV360 allows advertisers to build their own bidding algorithms tailored to very specific high-value performance objectives, assigning custom signals such as Floodlight variables or Google Analytics goals to hit campaign targets.",
-        "gmpimpact": "Custom Bidding leverages Google's bidding infrastructure while using advertiser-defined logic, enhancing optimization precision, integrating unique data and logic and directly aligning campaign delivery with unique business objectives.",
-        "businessimpact": "This drives superior media performance and improves alignment between media investment and business priorities, whilst fostering campaign agility for maximized marketing effectiveness."
+        "question": "What types of data and modeling approaches does your organization currently use to inform and optimize scenario planning?",
+        "answer": "Uplift or marginal return models to detect diminishing returns by channel or audience",
+        "type": "negative_choice",
+        "recommendation": "Data & AI Workshop (Incrementality Detection/Diminishin Return Modeling)",
+        "overview": "We recommend exploring incrementality detection and diminishing return modeling to identify the true impact of media spend across channels and segments. By applying uplift modeling or marginal return curves, your organization can determine optimal investment levels, ensuring budget is allocated where it drives the most incremental value. This approach reduces waste, prevents over-investment in saturated areas, and improves overall media efficiency."
     },
     {
-        "question": "which automated bidding strategies have you used in sa360?",
-        "answer": "n/a",
-        "recommendation": "Utilize automated bidding strategies in SA360 to improve campaign agility",
-        "overview": "Search Ads 360 offers automated bidding solutions that use historical performance and real-time auction signals to optimize bids across search engines to meet specific business objectives.",
-        "gmpimpact": "Implementing automated bidding strategies increases the bidding precision with SA360 and reduces optimization overheads, while aligning campaign delivery with performance goals.",
-        "businessimpact": "Automated bidding strategies provide an additional avenue for advertisers to drive better outcomes across search investments with less manual intervention and improved campaign agility."
-
+        "question": "What types of data and modeling approaches does your organization currently use to inform and optimize scenario planning?",
+        "answer": "Time-series forecasting to account for seasonality and key calendar events",
+        "type": "negative_choice",
+        "recommendation": "Data & AI Workshop (Seasonal & Event-Based Forecasting)",
+        "overview": "CWe recommend exploring seasonal and event-based forecasting using time-series models enhanced with anomaly detection. This approach helps anticipate fluctuations in demand, enabling more accurate planning around peak periods, holidays, and key commercial events. By aligning media and resource allocation with predicted performance shifts, your organization can reduce waste and maximize impact during critical windows."
     },
     {
-        "question": "have you used any of the cm360's apis? if so, please provide additional detail in the comments box.",
-        "answer": "n/a",
-        "recommendation": "Utilize CM360 APIs for increased productivity",
-        "overview": "Campaign Manager 360 (CM360) APIs allow for automated campaign trafficking, reporting and creative management, increasing operational efficiency, data access and insight generation.",
-        "gmpimpact": "Increase the productivity and agility of CM360, enhancing the flow of data between wider GMP products and external platforms, whilst minimizing the requirement for manual intervention.",
-        "businessimpact": "Faster execution and deeper insights leading to quicker optimizations, reduced setup time and higher productivity, allowing existing resource to focus on driving innovation."      
+        "question": "How does your organization currently identify and reduce spend on low-performing audience segments?",
+        "answer": ["We review performance data manually and make adjustments periodically", "We rely on platform-level automation with limited manual oversight", "We do not currently evaluate or optimize audience segments based on performance", "Other"],
+        "recommendation": "Data & AI Workshop (Wasted Impressions Mitigation)",
+        "overview": "We recommend exploring the use of AI-driven audience performance modeling to mitigate wasted impressions by identifying and deprioritizing low-performing segments. Leveraging historical response data, behavioral signals, and third-party data can help train models that more precisely allocate spend toward high-value audiences. This approach enhances efficiency by reducing budget waste and improving overall campaign effectiveness."
     },
     {
-        "question": "have you used sa360's api for campaign management and reporting automation? if so, please provide additional detail in the comments box.",
-        "answer": ["no - we are currently not using sa360 apis","n/a"],
-        "recommendation": "Utilize SA360 APIs for increased productivity",
-        "overview": "SA360 APIs provide automated control over search campaigns, allowing bulk edits, custom reporting and integration with internal tools for optimization and analysis.",
-        "gmpimpact": "Increase the productivity of SA360, streamlining campaign management and enhancing the flow of data between wider GMP products and external platforms. ",
-        "businessimpact": "Enhanced automation improves agility and control over search campaigns translate into faster optimizations, increased performance and reduced operational costs."
+        "question": "What methods does your organization currently use for marketing budget optimization? Select all those that apply.",
+        "answer": ["Cross-channel budget planning tools or models (e.g. MMM, MTA, unified measurement)", "Scenario planning or forecasting tools to simulate future budget or future performance impact"],
+        "type": "negative_choice",
+        "recommendation": "Data & AI Workshop (AI Led Scenario Planning / Forecasting Tool to Simulate Future Performance of Marketing)",
+        "overview": "We recommend exploring the implementation of an AI-led scenario planning and forecasting tool to simulate future performance across key areas of your marketing strategy. These tools leverage historical data and predictive models to forecast outcomes such as engagement, conversion, or revenue under different strategic approaches. This supports more informed decision-making, reduces reliance on trial-and-error, and improves overall marketing effectiveness through forward-looking insight."
     },
     {
-        "question": "have you used dv360's api for campaign management and reporting automation? if so, please provide additional detail in the comments box.",
-        "answer": "n/a",
-        "recommendation": "Utilize DV360 APIs for increased productivity",
-        "overview": "DV360 APIs provide advertisers automated control to manage and optimize campaigns, targeting, creatives and reporting.",
-        "gmpimpact": "Increase the productivity of DV360, scaling optimizations, creating dynamic campaign adjustments and more agile media buying.",
-        "businessimpact": "Enhanced automation improves the speed of campaign execution and accuracy, resulting in greater operational scale and stronger campaign performance."
+        "question": "How does your organization currently identify and reduce spend on low-performing audience segments?",
+        "answer": ["Data is generally consistent across key platforms with standard naming conventions and validation processes in place, but a few legacy or disconnected systems remain.", "Some key data sources are reliable but inconsistencies exist across platforms. Manual cleaning or reconciliation is often required", "Data is incomplete, inconsistent or siloed across systems. There is little to no confidence in data accuracy for decision making"],
+        "recommendation": "Data & AI Workshop (Data Readiness Assessment)",
+        "overview": "We recommend conducting a data readiness assessment to evaluate the quality, consistency, and structure of your data across sources. A strong, unified data foundation is critical for enabling high-efficiency use cases such as audience segmentation, personalization, measurement and AI-driven decisioning. Addressing gaps in data accuracy and alignment will unlock more reliable insights, reduce inefficiencies, and ensure your data strategy supports scalable, cross-functional marketing outcomes."
     },
     {
-        "question": "how are you activating first party data within dv360?",
-        "answer": "n/a",
-        "recommendation": "Utilize 1PD in DV360 for stronger data-driven optimization",
-        "overview": "DV360 allows advertisers to onboard and activate 1st-party data such as CRM lists and site activity to inform and enhance audience targeting, bidding and measurement. Further solutions such as Google's Customer Match can also be utilized ",
-        "gmpimpact": "Bringing 1st-party data in to DV360 unlocks additional platform features and capabilities (such as Customer Match) increasing the utilization of DV360. ",
-        "businessimpact": "Linking 1PD sources to media activation results in higher-quality targeting and greater business outcomes from programmatic investments, with advertisers experiencing on average 2x revenue uplift. "   
+        "question": "What web analytics platform(s) do you have in place? Select all those that apply.",
+        "match_criteria": {
+            "min_matches": 2,
+            "or_group": ["Adobe Analytics", "Google Analytics 4 (GA4)", "Google Analytics 360 (GA360)", "Heap Analytics", "HubSpot", "Matomo", "Mix Panel", "Other"]
+        },
+        "recommendation": "Platform Architecture Optimization Wedge (Web)",
+        "overview": "Initial analysis suggests overlapping capabilities in web analytics platforms, with potential to streamline. We recommend conducting a thorough analysis of your current platform architecture to identify any overlapping capabilities, redundant technologies or critical gaps. This assessment will help streamline your martech stack, reduce unnecessary costs and ensure each platform plays a clear, complementary role. The outcome will drive greater operational efficiency, improve data integration and enable a more scalable, future-ready marketing infrastructure."
     },
     {
-        "question": "how are you activating first party data within sa360?",
-        "answer": "n/a",
-        "recommendation": "Utilize 1PD in SA360 for stronger data-driven optimization",
-        "overview": "SA360 supports the integration of 1st-party data to inform bid strategies, audience targeting, and performance measurement across search campaigns.",
-        "gmpimpact": "Bringing 1st-party data in to SA360 unlocks additional platform features and capabilities, increasing the utilization of SA360.",
-        "businessimpact": "Stronger data-driven optimization results in more efficient budget use, higher-quality traffic, and greater business outcomes from paid search investments."        
+        "question": "Do you have a data warehouse in place? If so please specify those that apply.",
+        "match_criteria": {
+            "min_matches": 2,
+            "or_group": ["Amazon Redshift", "Google BigQuery", "Microsoft Azure Synapse Analytics", "Snowflake", "Other"]
+        },
+        "recommendation": "Platform Architecture Optimization Wedge (DW)",
+        "overview": "Initial analysis suggests overlapping capabilities in data warehouse platforms, with potential to streamline. We recommend conducting a thorough analysis of your current platform architecture to identify any overlapping capabilities, redundant technologies or critical gaps. This assessment will help streamline your martech stack, reduce unnecessary costs and ensure each platform plays a clear, complementary role. The outcome will drive greater operational efficiency, improve data integration and enable a more scalable, future-ready marketing infrastructure."
     },
     {
-        "question": "how are you activating first party data within cm360?",
-        "answer": "n/a",
-        "recommendation": "Utilize 1PD in CM360 for enhanced insight of customer interactions and segmentation",
-        "overview": "CM360 supports the use of 1st-party data through floodlight activities and audience lists for more accurate measurement, tracking and attribution. This results in enriched reporting and campaign performance analysis.",
-        "gmpimpact": "Integrating 1st-party data into CM360 unlocks additional platform capabilities and enhances cross-channel measurement, custom audience segments and provides more meaningful attribution and post-campaign analysis.",
-        "businessimpact": "Improved marketing effectiveness through clearer performance insights, better-informed media decisions and a more holistic understanding of customer interactions across media touchpoints."
+        "question": "Do you have any Data Cleanrooms in place? If so please specify which data cleanroom(s) apply.",
+        "match_criteria": {
+            "min_matches": 2,
+            "or_group": ["Amazon Marketing Cloud (AMC)", "Google Ads Data Hub (ADH)", "InfoSum", "LiveRamp", "Snowflake", "Other"]
+        },
+        "recommendation": "Platform Architecture Optimization Wedge (Clean)",
+        "overview": "Initial analysis suggests overlapping capabilities in data cleanrooms, with potential to streamline. We recommend conducting a thorough analysis of your current platform architecture to identify any overlapping capabilities, redundant technologies or critical gaps. This assessment will help streamline your martech stack, reduce unnecessary costs and ensure each platform plays a clear, complementary role. The outcome will drive greater operational efficiency, improve data integration and enable a more scalable, future-ready marketing infrastructure."
     },
     {
-        "question": "is your instance of google tag manager server-side or client-side?",
-        "answer": "gtm (client-side)",
-        "recommendation": "Consider implementing server-side Google Tag Manager (sGTM) for increased data accuracy and control.",
-        "overview": "Server-side tagging involves routing tag calls through a server rather than directly from a user's browser, improving load speed, data security, and privacy compliance.",
-        "gmpimpact": "A forward thinking & futureproofed utilization of GMP, as server-side tagging ensures more complete, accurate and consistent data signals with more advertiser control over data sharing.",
-        "businessimpact": "Improved data quality with more control, resulting in a more futureproofed tag management set-up in a changing regulatory landscape."
+        "question": "How would you describe your organization’s current approach to evaluating and optimizing your marketing technology stack?",
+        "answer": ["We’ve identified some redundancy or inefficiencies in our platform setup but have not prioritized a full in-depth review due to lack of resources.", "We suspect or are aware of overlapping capabilities across platforms but have not prioritized addressing them due to lack of resources.", "We do not have the resources or processes in place to assess or optimize our platform architecture. Any overlaps or inefficiencies are currently unaddressed."],
+        "recommendation": "Platform Architecture Optimization Wedge (Arch)",
+        "overview": "We recommend conducting a thorough analysis of your current platform architecture to identify any overlapping capabilities, redundant technologies or critical gaps. This assessment will help streamline your martech stack, reduce unnecessary costs and ensure each platform plays a clear, complementary role. The outcome will drive greater operational efficiency, improve data integration and enable a more scalable, future-ready marketing infrastructure."
     },
     {
-        "question": "which of the following google products are linked to your google analytics instance (ga4/ga360)?",
-        "answer": "n/a",
-        "recommendation": "Leverage Google Cloud and existing GMP investments for advanced audience modelling, insights and streamlined activation",
-        "overview": "Leverage Google Cloud and the existing Google Marketing Platform investments to create a single solution for data storage, modelling & analysis, resulting in a more cost-efficient advanced audience strategy.",
-        "gmpimpact": "Enhance the connectivity between existing Google platforms in place and enable more effective cross-channel targeting, insights & measurement.",
-        "businessimpact": "Optimize the overarching platforms architecture, utilizing existing Google platforms for advanced audience strategy, increasing ROI of MarTech investment."        
-    },
-    {
-        "question": "are your platforms set-up to test privacy sandbox apis (such as protected audience api, topics api, attribution reporting api etc)",
-        "answer": [
-            "yes but we have not begun testing any google privacy sandbox apis",
-            "no we have not tested any google privacy sandbox apis, but we would like to understand what is applicable to our business"
-        ],
-        "recommendation": "Explore Privacy Sandbox API testing, further adapting a changing regulatory landscape",
-        "overview": "Privacy Sandbox is Google's initiative to develop privacy-preserving alternatives for 3rd party cookies and cross-site tracking. APIs like Topics, Attribution Reporting, Private Aggregation and Protected Audience are designed to enable advertising functionalities while minimizing user data exposure.",
-        "gmpimpact": "Exploring and testing Privacy Sandbox APIs is a key step in Google advertisers preparing for continued user privacy changes while maintaining critical functions such as frequency capping, remarketing, and attribution.",
-        "businessimpact": "Proactively exploring and adopting privacy-safe tools aids with media activation & strategy continuity, compliance, and sustained campaign performance in a changing regulatory landscape."        
-    },
-    {
-        "set_id": "bigquery",
+        "set_id": "SAA1Pa",
         "questions": [
             {
-                "question": "is bigquery in use for warehousing ga4/ga360 data?",
-                "answer": "no"
+                "question": "What initiatives does your organization currently have in place to drive greater efficiency in audience strategy and activation?",
+                "answer": ["Website and app behavioral data", "We do not currently build first party audiences"],
+                "type": "negative_choice"
             },
             {
-                "question": "which google products are currently being utilized?",
-                "answer": [
-                    "google analytics 4 (ga4)",
-                    "google analytics 360 (ga360)"
-                ]
-            },
-        ],
-        "recommendation": "Consider utilizing BigQuery for warehousing of data",
-        "overview": "BigQuery is Google Cloud's data warehouse. Utilizing BigQuery enables advertisers to store, unify and analyze 1st-party, GMP and external data in one environment. Data stored in BigQuery can be stored in perpetuity while GA4 stores data for a maximum of 14 months.",
-        "gmpimpact": "BigQuery integrates natively with GMP tools, including GA4, DV360, SA360, and CM360, unlocking use cases like improved data storage, predictive modeling, audience segmentation and deeper attribution analysis.",
-        "businessimpact": "Utilization of BigQuery can enhance data-driven decision-making and supports long-term business intelligence strategies that enhance customer value and marketing performance."
-    },
-    {
-        "set_id": "adh",
-        "questions": [
-            {
-                "question": "which google products are currently being utilized?",
-                "answer": "ads data hub (adh)"
-            },
-            {
-                "question": "to what extent is ads data hub (adh) currently being used by your team(s) for measurement and analysis?",
-                "answer": [
-                    "we haven't used adh yet but are interested",
-                    "we've used it a few times for exploratory or one-off analysis",
-                    "we actively use adh for campaign measurement or insights"
-                ]
-            },
-            {
-                "question": "in addition to what is currently being utilized what custom adh analysis would you like to undertake ? select all that apply",
-                "answer": [
-                    "reach & frequency",
-                    "audience overlap",
-                    "conversion lift",
-                    "path to conversion",
-                    "other"
-                ]
+                "question": "What web analytics platform(s) do you have in place? Select all those that apply.",
+                "answer": "n/a",
+                "type": "negative_choice"
             }
         ],
-        "recommendation": "Consider deployment of enhanced hands-on optimization strategy within Ads Data Hub (ADH)",
-        "overview": "Deploy hands-on optimization strategy within ADH, enhancing the efficiency and output quality of use cases when utilizing Google's wall-garden clean room.",
-        "gmpimpact": "Increase the value derived from ADH and related GMP ecosystem, through enhanced utilization of its functionalities and measurement mechanisms.",
-        "businessimpact": "More efficient and reliable reporting & measurement outcomes, improving the proven marketing ROI."        
+        "recommendation": "Site Analytics Audit for 1P Audience Builds",
+        "overview": "We recommend conducting a Web Analytics Audit to ensure accurate and complete data collection for building high-quality first-party audiences. Clean, structured data improves targeting, reduces media waste and enables more effective personalization. This foundational step enhances audience strategy and drives greater marketing efficiency across channels."
     },
     {
-        "set_id": "ga4imp",
+        "set_id": "SAA1Pb",
         "questions": [
             {
-                "question": "which google products are currently being utilized?",
-                "answer": [
-                    "google analytics 4 (ga4)",
-                    "google analytics 360 (ga360)"
-                ]
+                "question": "What data sources are utilized to build out first party audiences?",
+                "answer": "Use of first-party data to build custom audience segments"
             },
             {
-                "question": "do you have ga4/ga360 maintenance in place: tagging, refreshing internal filters, updating channel groupings, reevaluating audiences and segments, etc?",
-                "answer": [
-                    "platform maintenance processes are implemented but not regularly followed",
-                    "no platform maintenance takes place"
-                ]
+                "question": "What web analytics platform(s) do you have in place? Select all those that apply.",
+                "answer": "n/a",
+                "type": "negative_choice"
             },
             {
-                "question": "which of the following best describes the way you use data in ga4/ga360?",
-                "answer": ["we collect pageviews and sporadic event data. we regularly leverage the built-in ga4 reports to gain insights about our customers, improve website/app user experience and campaign performance.",
-                    "we collect only high-level website data and periodically review the basic metics (i.e. page views, unique visitors, bounce rate, top viewed pages) to monitor performance.",
-                    "we have it set up but it is currently not being utilized."
-                ]
+                "question": "Select all of the following that match the user insights your organization gains from website or app data?",
+                "answer": ["We use website/app data to predict user behavior and personalize experiences.", "We use website data to model out customer lifetime value.", "We tie website/app actions to objectives and key results (OKRs)"],
+                "type": "negative_choice"
             }
         ],
-        "recommendation": "Consider GA4 audit of platform implementation & maintenance to increase on-site insights and a more advanced audience strategy",
-        "overview": "GA4 provides cross-platform analytics with advanced event tracking, predictive metrics, advanced audience tools and seamless integration with the wider GMP suite. An audit of GA4 implementation and maintenance ensures correct setup and ongoing data quality.",
-        "gmpimpact": "Auditing and properly maintaining GA4 ensures accurate, holistic data collection that enhances customer insights and audience strategy, whilst also improving the utilization of wider GMP products such as media activation and website and app performance analysis.",
-        "businessimpact": "Reliable GA4 implementation and maintenance supports enhanced insights, a more effective audience strategy and increased return on investment in wider GMP products."
+        "recommendation": "Site Analytics Audit for 1P Audience Builds",
+        "overview": "We recommend conducting a Web Analytics Audit to ensure accurate and complete data collection for building high-quality first-party audiences. Clean, structured data improves targeting, reduces media waste and enables more effective personalization. This foundational step enhances audience strategy and drives greater marketing efficiency across channels."
     },
     {
-        "set_id": "enhancedconv",
+        "set_id": "SAACexp",
         "questions": [
             {
-                "question": "what industry is the brand considered to be in?",
+                "question": "What methods of analysis does your organization use to optimize and improve customer experience on your website or app.",
+                "answer": "Web analytics and funnel analysis"
+            },
+            {
+                "question": "What web analytics platform(s) do you have in place? Select all those that apply.",
+                "answer": "n/a",
+                "type": "negative_choice"
+            },
+            {
+                "question": "Select all of the following that match the user insights your organization gains from website or app data?",
+                "answer": ["We are able to identify user journey drop-off points and optimize conversion paths.", "We use website/app data to predict user behavior and personalize experiences."],
+                "type": "negative_choice"
+            }
+        ],
+        "recommendation": "Site Analytics Audit for Customer Experience",
+        "overview": "We recommend conducting a Web Analytics Audit to ensure insights are being collected to identify the full breadth of friction points, drop-offs and gaps in user behavior tracking across your website. Accurate analytics enable data-led decisions to streamline user journeys, improve content relevance and reduce barriers to conversion. This leads to a more efficient customer experience, higher conversion rates and better ROI from existing traffic."
+    },
+    {
+        "set_id": "HM_Cexp",
+        "questions": [
+            {
+                "question": "What methods of analysis does your organization use to optimize and improve customer experience on your website or app.",
+                "answer": "Heatmapping",
+                "type": "negative_choice"
+            },
+            {
+                "question": "Select all of the following that match the user insights your organization gains from website or app data?",
                 "answer": [
-                    "chemical",
-                    "education",
-                    "government",
-                    "healthcare",
-                    "legal",
-                    "military",
-                    "pharmaceuticals",
-                    "toys",
-                    "other",
-                    "n/a"
+                    "We track which pages or products users are most engaged with.",
+                    "We are able to identify user journey drop-off points and optimize conversion paths."
                 ],
                 "type": "negative_choice"
-            },
+            }
+        ],
+        "recommendation": "Heatmapping for Customer Experience Insights & Improvements",
+        "overview": "We recommend exploring heatmapping tools to gain visual insights into user behavior across key website or app pages. Heatmaps highlight where users click, scroll and drop off, enabling teams to identify friction points, content blind spots, and usability issues. This helps prioritize experience improvements that reduce abandonment and drive greater efficiency in conversion performance."
+    },
+    {
+        "set_id": "propensity",
+        "questions": [
             {
-                "question": "have you implemented conversion api's (capi)? if so please specify across which partners capis have been implemented.",
-                "answer": [
-                    "google enhanced conversions",
-                    "google enhanced conversions for leads"
-                 ],
+                "question": "What initiatives does your organization currently have in place to drive greater efficiency in audience strategy and activation?",
+                "answer": "Predictive modeling or AI to identify high-value users or churn risk",
                 "type": "negative_choice"
             },
             {
-                "question": "what google owned & operated inventory is currently being bought in media campaigns?",
-                "answer": [
-                    "google search",
-                    "youtube"
-                ]
+                "question": "Select all of the following that match the user insights your organization gains from website or app data?",
+                "answer": "We use website data to model out customer lifetime value."
+            }
+        ],
+        "recommendation": "Propensity Modelling",
+        "overview": "We recommend implementing propensity modelling powered by web analytics data to better understand user intent and likelihood to convert. This approach uses on-site behavioral signals to identify high-potential audiences for more targeted activation. It enables more efficient use of marketing spend by prioritizing users with greater likelihood to take action."
+    },
+    {
+        "set_id": "adv_prop_crm",
+        "questions": [
+            {
+                "question": "Select all of the following that match the user insights your organization gains from website or app data?",
+                "answer": "We use website data to model out customer lifetime value."
             },
             {
-                "question": "do any of your media campaign conversion points involve the customer sharing pii?",
-                "answer": [
-                    "yes - at point of conversion we collect advance crm: name, address, email, tel, post code, customerid, maid and more",
-                    "yes - at point of conversion we collect basic crm: email and/or maid only"
-                ]
+                "question": "What initiatives does your organization currently have in place to drive greater efficiency in audience strategy and activation?",
+                "answer": "Predictive modeling or AI to identify high-value users or churn risk"
+            },
+            {
+                "question": "What data are you utilizing to model out customer lifetime value or likelihood?",
+                "answer": "CRM Data",
+                "type": "negative_choice"
             },
             {
                 "question": "what are your media campaign goals?",
                 "answer": [
-                    "acquisition",
-                    "direct response",
-                    "lead generation",
-                    "retention",
-                    "sales"
+                    "$500K – $1M",
+                    "$1M – $5M",
+                    "$5M – $10M",
+                    "More than $10M"
                 ]
             }
         ],
-        "recommendation": "Implement Google's Enhanced Conversions for more complete conversion data capture",
-        "overview": "Enhanced Conversions is a solution that improves the accuracy of conversion measurement by securely using hashed first-party data to match conversions to ad interactions. This helps recover conversions that may not be tracked due to browser limitations or user privacy settings.",
-        "gmpimpact": "Implementing Enhanced Conversions will allow the advertiser to capture more complete conversion data, improving the reliability of attribution and automated bidding capabilities in Google Ads and SA360.",
-        "businessimpact": "Implementation of Enhanced Conversions will lead to smarter bidding decisions, improved ROI and stronger confidence in marketing spend."
-     },
-    {
-        "set_id": "GCPCDP",
-        "questions": [
-            {
-                "question": "which of the following best describes the types of platforms your organize uses to manage first-party data? select all that apply",
-                "answer": [
-                    "customer data platform (cdp)"
-                ],
-                "type": "negative_choice"
-            },
-            {
-                "question": "which google products are currently being utilized?",
-                "answer": [
-                    "google ads",
-                    "display & video 360 (dv360)",
-                    "search ads 360 (sa360)"
-                ]
-            },
-            {
-                "question": "which google products are currently being utilized?",
-                "answer": [
-                    "google analytics 4 (ga4)",
-                    "google analytics 360 (ga360)"
-                ]
-            },
-            {
-                "question": "which google products are currently being utilized?",
-                "answer": [
-                    "bigquery"
-                ]
-            },
-            {
-                "question": "is bigquery in use for warehousing ga4/ga360 data?",
-                "answer": [
-                    "yes"
-                ]
-            },
-            {
-                "question": "approximately what % of the next 12 months media budget is to be allocated to gmp platforms? give answer in percentages 0-100%",
-                "answer": [
-                    "50-75%",
-                    "75-100%"
-                ]
-            }
-        ],
-        "recommendation": "Leverage Google Cloud and existing GMP investments for advanced audience modelling, insights and streamlined activation",
-        "overview": "Leverage Google Cloud and the existing Google Marketing Platform investments to create a single solution for data storage, modelling & analysis, resulting in a more cost-efficient advanced audience strategy.",
-        "gmpimpact": "Enhance the connectivity between existing Google platforms in place and enable more effective cross-channel targeting, insights & measurement. ",
-        "businessimpact": "Optimize the overarching platforms architecture, utilizing existing Google platforms for advanced audience strategy, increasing ROI of MarTech investment."
+        "recommendation": "Advanced propensity modelling to tie into business impacts (website data + CRM data)",
+        "overview": "We recommend incorporating CRM data into propensity modelling to align predictions with key business goals such as retention, upsell, or reactivation. This integration enriches the models with customer history and lifecycle signals, enabling more precise targeting. It supports greater marketing efficiency by ensuring efforts are focused on driving measurable business outcomes."
     },
     {
-        "set_id": "GCPClean",
+        "set_id": "adv_prop_3rd",
         "questions": [
             {
-                "question": "which of the following data usage activities does your organization currently engage or see value in? select all that apply",
-                "answer": [
-                    "not currently collaborating or sharing data",
-                    "n/a"
-                ],
+                "question": "Select all of the following that match the user insights your organization gains from website or app data?",
+                "answer": "We use website data to model out customer lifetime value."
+            },
+            {
+                "question": "What initiatives does your organization currently have in place to drive greater efficiency in audience strategy and activation?",
+                "answer": "Predictive modeling or AI to identify high-value users or churn risk"
+            },
+            {
+                "question": "What data are you utilizing to model out customer lifetime value or likelihood?",
+                "answer": "Third Party Licensed Data",
                 "type": "negative_choice"
             },
             {
-                "question": "how important is data privacy and control when sharing data with external platforms, vendors and partners?",
+                "question": "what are your media campaign goals?",
                 "answer": [
-                    "very important, data must stay governed and secure at all times",
-                    "mostly important, we prefer privacy controls but allow some flexibility",
-                    "somewhat important, depends on the partner or use case",
+                    "$500K – $1M",
+                    "$1M – $5M",
+                    "$5M – $10M",
+                    "More than $10M"
                 ]
             }
         ],
-        "recommendation": "Consider utilization of GCP data cleanroom for secure data processing and collaboration",
-        "overview": "A data cleanroom on GCP allows secure data collaboration between the advertiser and partners (e.g., Google, retailers, publishers) without exposing user-level information.",
-        "gmpimpact": "The GCP cleanroom can enable use cases including audience syndication and audience enrichment, as well as analytics use cases such as incrementality and partner overlap without violating data privacy.",
-        "businessimpact": "This delivers stronger insights into media effectiveness, partner value and multi-touch attribution, enabling more strategic media planning and increased privacy controls over data sharing."
+        "recommendation": "Advanced propensity modelling to enhanced third party licensed data for additional lift in modelling",
+        "overview": "We recommend exploring the use of licensed third-party data to enrich propensity models and improve accuracy. Supplementing internal data with broader behavioral, demographic, or lifestyle signals helps fill gaps, refine targeting, and expand reach to lookalike audiences, improving model precision and enabling more efficient audience activation at scale."
+    },
+    {
+        "set_id": "CP_Audiences",
+        "questions": [
+            {
+                "and_group_name": "Group 1: Q1 or Q2",
+                "or_group": [
+                    {
+                        "question": "What DSP(s), Demand-Side Platforms, do you currently have in place?",
+                        "answer": "Google Display & Video 360 (DV360)"
+                    },
+                    {
+                        "question": "What Paid Search platform(s) do you currently have in place?",
+                        "answer": ["Google Ads", "Google Search Ads 360 (SA360)"]
+                    }
+                ]
+            },
+            {
+                "and_group_name": "Group 2: Q3 must be true",
+                "or_group": [
+                    {
+                        "question": "What web analytics platform(s) do you have in place? Select all those that apply.",
+                        "answer": ["Google Analytics 4 (GA4)", "Google Analytics 360 (GA360)"]
+                    }
+                ]
+            },
+            {
+                "and_group_name": "Group 2: Q3 must be true",
+                "or_group": [
+                    {
+                        "question": "Do you have a data warehouse in place? If so please specify those that apply.",
+                        "answer": "Google BigQuery"
+                    }
+                ]
+            }
+        ],
+        "recommendation": "Cloud Patterns For Audiences",
+        "overview": "We recommend reconfiguring your use of Google Analytics, BigQuery, and the broader Google Marketing Platform (GMP) to function as a scalable, flexible alternative to a Customer Data Platform (CDP). By integrating and centralizing your customer data within this ecosystem, you can unify audiences, enable advanced segmentation, and activate personalized campaigns across channels more efficiently. This approach maximizes existing investments, improves data accessibility, and supports real-time insights for smarter marketing decisions."
+    },
+    {
+        "set_id": "CleanConsult",
+        "questions": [
+            {
+                "question": "Do you have any Data Cleanrooms in place? If so please specify which data cleanroom(s) apply.",
+                "answer": "n/a"
+            },
+            {
+                "question": "Which of the following data usage activities does your organization currently engage in?",
+                "answer": "n/a",
+                "type": "negative_choice"
+            }
+        ],
+        "recommendation": "Cleanroom Consultation",
+        "overview": " We recommend exploring data cleanrooms to enable secure audience matching, insights generation, and campaign measurement in collaboration with media partners. Cleanrooms allow for privacy-safe data integration, improving match rates and enabling deeper analysis of performance across platforms without exposing raw user data. This drives efficiency by enhancing targeting accuracy, reducing duplication and delivering more informed media investments."
+    },
+    {
+        "set_id": "DataAI_ASO",
+        "questions": [
+            {
+                "question": "What types of data and modeling approaches does your organization currently use to inform and optimize scenario planning?",
+                "answer": "Platform-native AI bidding tools (e.g. Google Smart Bidding, Meta Advantage+)"
+            },
+            {
+                "question": "What types of data and modeling approaches does your organization currently use to inform and optimize scenario planning?",
+                "answer": "Custom auction strategies using third-party API integrations",
+                "type": "negative_choice"
+            }
+        ],
+        "recommendation": "Data & AI Workshop (Auction Strategy Optimization)",
+        "overview": "We recommend assessing your current auction strategies to compare the effectiveness of native AI-based bid tools (e.g. Google Smart Bidding, Meta Advantage+) with custom bidding strategies powered by third-party APIs. This evaluation can uncover opportunities to improve cost-efficiency, enhance control and better align bidding logic with your unique performance goals. Optimizing auction strategy ensures smarter spend and improved return across key platforms."
+    },
+    {
+        "set_id": "DataAI_AORF",
+        "questions": [
+            {
+                "and_group_name": "Group 1: Q1 or Q2",
+                "or_group": [
+                    {
+                        "question": "How does your organization currently manage audience overlap across campaigns or platforms?",
+                        "answer": ["We conduct audience overlap checks using platform-native tools", "We are aware of potential overlap but do not actively manage it", "Other"]
+                    },
+                    {
+                        "question": "What methods does your organization use to control reach and frequency across campaigns?",
+                        "answer": ["Cross-platform frequency management", "Frequency logic based on user behavior or engagement decay", "In-platform frequency capping (e.g. within Meta, Google)"],
+                        "type": "negative_choice"
+                    }
+                ]
+            },
+            {
+                "and_group_name": "Group 2: Q3 must be true",
+                "or_group": [
+                    {
+                        "question": "What initiatives does your organization currently have in place to drive greater efficiency in audience strategy and activation?",
+                        "answer": ["Regular analysis of audience overlap and performance impact", "Audience suppression to reduce duplication and avoid wasted spend", "Application of reach and frequency capping to reduce overspend and improve exposure efficiency"]
+                    }
+                ]
+            }
+        ],
+        "recommendation": "Data & AI Workshop (Audience Overlap Reduction & Frequency Control)",
+        "overview": "We recommend implementing AI and machine learning models to analyze audience overlap across campaigns and platforms, enabling the suppression of redundant reach. Incorporating frequency capping logic tied to predicted decay in incremental lift helps optimize exposure, preventing audience fatigue and improving engagement. This strategy increases marketing efficiency by maximizing the value of each impression and reducing wasted spend."
+    },
+    {
+        "set_id": "DataAI_WIM",
+        "questions": [
+            {
+                "question": "How does your organization currently identify and reduce spend on low-performing audience segments?",
+                "answer": ["We use AI or machine learning models to assess segment performance and adjust spend dynamically", "We review performance data manually and make adjustments periodically"]
+            },
+            {
+                "question": "What types of data inform your audience performance evaluation?",
+                "answer": ["Historical campaign response or conversion data", "On-site or in-app behavioral data (e.g. bounce rate, session depth)", "Third-party or licensed audience data", "Predictive analytics or modeling tools"],
+                "type": "negative_choice"
+            }
+        ],
+        "recommendation": "Data & AI Workshop (Wasted Impressions Mitigation)",
+        "overview": "We recommend enhancing the the use of AI-driven audience performance modeling to mitigate wasted impressions by leveraging additional data sources tp train models that more precisely allocate spend toward high-value audiences. This approach enhances efficiency by reducing budget waste and improving overall campaign effectiveness."
+    },
+    {
+        "set_id": "DataAI_LAL",
+        "questions": [
+            {
+                "question": "What initiatives does your organization currently have in place to drive greater efficiency in audience strategy and activation?",
+                "answer": "Lookalike or similarity modeling for prospecting"
+            },
+            {
+                "question": "How does your organization currently build and optimize lookalike or similar audience segments for prospecting?",
+                "answer": "We use our own AI-based clustering and advanced data modeling to create lookalike audiences",
+                "type": "negative_choice"
+            }
+        ],
+        "recommendation": "Data & AI Workshop (Lookalike improvement & cost effective segment targeting)",
+        "overview": "We recommend evolving beyond rule-based lookalike models by adopting AI-driven clustering to identify high-potential prospect segments. This approach increases precision by grouping users based on deeper behavioral and demographic patterns, rather than basic similarity rules. As a result, it improves conversion rates, reduces customer acquisition costs (CAC), and drives greater efficiency across prospecting campaigns."
+    },
+    {
+        "set_id": "DataAI_DSO",
+        "questions": [
+            {
+                "question": "What initiatives does your organization currently have in place to drive greater efficiency in audience strategy and activation?",
+                "answer": "Audience suppression to reduce duplication and avoid wasted spend"
+            },
+            {
+                "question": "How does your organization currently manage audience suppression to avoid overexposure?",
+                "answer": ["We use real-time data and AI-driven rules to dynamically suppress users based on exposure recency, engagement or lifecycle status", "We apply suppression lists that are updated in real time based on user actions"],
+                "type": "negative_choice"
+            }
+        ],
+        "recommendation": "Data & AI Workshop (Dynamic Suppression Optimization",
+        "overview": "We recommend exploring dynamic suppression optimization to improve audience efficiency and reduce wasted impressions. By leveraging real-time data, such as recent ad exposure, engagement signals, or customer lifecycle stage, your organization can suppress users who are unlikely to convert or have recently re-engaged. This approach minimizes oversaturation, improves user experience, and reallocates budget toward higher-performing segments, ultimately driving stronger campaign performance."
+    },
+    {
+        "set_id": "RMN_DEEM",
+        "questions": [
+            {
+                "question": "Does your organization currently monetize its first party data?",
+                "answer": ["Selling or licensing data to external partners", "Offering audience targeting across owned inventory to brand partners", "First party data matching (e.g. through clean rooms) for activations", "First party data matching (e.g. through clean rooms) for insights or measurement"]
+            },
+            {
+                "question": "How does your organization enhance first-party audience data to support monetization strategies?",
+                "answer": ["We occasionally use external data to supplement first-party audiences for monetization purposes", "We currently rely solely on raw first-party data for audience monetization but are exploring enrichment options", "We do not enrich first-party audiences for monetization"]
+            }
+        ],
+        "recommendation": "RMN/Commerce Workshop (Data Enrichment for Enhanced Monetization)",
+        "overview": "We recommend leveraging additional data sets for data enrichment to enhance your first-party data profiles, unlocking deeper audience insights and more precise targeting. By integrating additional demographic, behavioral, or contextual data, you can increase the value and relevance of your data assets for partners and advertisers. This enrichment supports more effective monetization strategies, driving higher engagement and improved ROI across your marketing and retail media efforts."
+    },
+    {
+        "set_id": "RMN_InHouse",
+        "questions": [
+            {
+                "question": "Does your organization have any of the following owned and operated channels?",
+                "answer": "n/a",
+                "type": "negative_choice"
+            },
+            {
+                "question": "Does your organization currently monetize its first party data?",
+                "answer": ["Selling or licensing data to external partners", "Offering audience targeting across owned inventory to brand partners", "First party data matching (e.g. through clean rooms) for activations", "First party data matching (e.g. through clean rooms) for insights or measurement"]
+            },
+            {
+                "question": "Who currently manages the monetization of your owned and operated channels and/or data?",
+                "answer": ["Managed by an external agency or consultancy", "Managed collaboratively by in-house teams and external agency or consultancy", "Currently no clear ownership of owned & operated channel/data monetization"]
+            }
+        ],
+        "recommendation": "RMN/Commerce Workshop (In-House Monetization)",
+        "overview": "We recommend consolidating owned and operated channel monetization in-house to gain greater control, transparency, and profitability. By building a dedicated team or establishing clear internal ownership, your organization can directly manage media partner relationships, audience activation, and revenue streams. This approach improves operational efficiency, aligns monetization efforts with broader business goals, and captures a larger share of revenue by reducing external fees."
     }
 ]
+
 
 def normalize_answer_for_comparison(answer_value):
     """
@@ -520,7 +617,7 @@ def generate_category_summary(df):
     You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity based on their audit responses
     Provide a summary using the answers and comments for all questions focusing on their current usage marketing maturity in their implementation for Adtech and Martech.
     Provide the response in a set of bullet points, these will be emailed and need to be understand by sales, marketing and adtech colleagues.
-    Please provide the summary for eacg of the categories provided.
+    Please provide the summary for each of the categories provided.
     Categories: {categories}
     Questions: {questions}
     Answers: {answers}
@@ -578,26 +675,26 @@ def generate_bullet_summary(df):
 
 def identify_top_maturity_gaps(df):
     
-    subset = df.copy()
-
+    subset = df
+    categories = subset["Category"].tolist()
     questions = subset["Question"].tolist()
     answers = subset["Answer"].tolist()
     comments = subset["Comment"].fillna("").tolist() if "Comment" in df.columns else []
 
     prompt = f"""
 You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity based on their audit responses. 
-Review the following questions, answers, and comments to identify the **most critical marketing maturity gaps**.
+Within each Category, Review the questions, answers, and comments to identify the **most critical marketing maturity gaps**.
 Focus the gaps on these three pillars
 Identify and Eliminate Inefficiencies - Pinpoint overlaps, gaps and underutilized capabilities within your platforms, data and technology setup. This process uncovers opportunities to streamline your platform architecture, reduce wasted investment and unlock additional value from your inventory or first-party data assets.
 Accelerate Innovation & Maturity - Expose maturity gaps that are holding back growth and highlight areas where new tools, approaches or AI-led solutions can be introduced. Ensure your organization stays up to speed with market shifts, embracing  cutting-edge practices, whilst building long-term competitive advantage.
 Develop a Sustainable Growth Roadmap - Translate assessment insights into a prioritized, achievable plan, backed by identification of expertise & resources best positioned to deliver on the changes. This ensures that efficiency gains, capability enhancements and monetization opportunities are implemented effectively and sustained.
 Each maturity gap should include:
 - A concise **Heading** (e.g., "Lack of First-Party Data Activation")
-- A brief 25 words or less **Context** (what the maturity driver is and why it matters)
-- A clear 25 words or less **Impact** (how this gap is affecting the advertiser's performance or strategic outcomes)
+- A brief 25 words or less **Context** (the description of that driver or gap)
+- A clear 25 words or less **Impact** (The impact that gap or driver has or will have on the platforms architecture or data quality or audience strategy or technology use or marketing strategy or overall business objectives)
 
 
-Return a list of the gaps as structured objects like, ranked where #1 is the most impactful:
+For each category, Return the Category as a Header, and then return a list of the gaps as structured objects like, ranked where #1 is the most impactful:
 1. **Heading**: ...
    **Context**: ...
    **Impact**: ...
