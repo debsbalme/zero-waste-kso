@@ -604,14 +604,15 @@ def run_recommendation_analysis(df):
 
         else:
             # B. Grouped Questions Recommendation
-            group_questions = item['questions']
             group_recommendation = item['recommendation']
             rec_overview = item.get('overview', 'N/A')
             rec_gmp_impact = item.get('gmpimpact', 'N/A')
             rec_business_impact = item.get('businessimpact', 'N/A')
             
             group_condition_met = False
-            
+            current_group_contributing_scores = 0.0
+            current_group_contributing_max_weights = 0.0
+
             # --- Logic for 'match_answers_from_questions' ---
             if 'match_answers_from_questions' in item and len(item['match_answers_from_questions']) == 2:
                 q1_key = item['match_answers_from_questions'][0].lower().strip()
@@ -630,8 +631,9 @@ def run_recommendation_analysis(df):
                         current_group_contributing_scores = q1_entry.get('score', 0.0) + q2_entry.get('score', 0.0)
                         current_group_contributing_max_weights = q1_entry.get('maxweight', 0.0) + q2_entry.get('maxweight', 0.0)
             
-            # --- Logic for 'min_matches' and 'or_group' ---
+            # --- Logic for 'min_matches', 'or_group', and 'AND' ---
             else:
+                group_questions = item['questions']
                 contributing_matches = []
                 for sub_q_item in group_questions:
                     sub_q_question = sub_q_item['question'].lower().strip()
