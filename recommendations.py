@@ -418,6 +418,73 @@ from fpdf import FPDF
         ],
         "recommendation": "RMN/Commerce Workshop (In-House Monetization)",
         "overview": "We recommend consolidating owned and operated channel monetization in-house to gain greater control, transparency, and profitability. By building a dedicated team or establishing clear internal ownership, your organization can directly manage media partner relationships, audience activation, and revenue streams. This approach improves operational efficiency, aligns monetization efforts with broader business goals, and captures a larger share of revenue by reducing external fees."
+    },
+    {
+        "set_id": "CRoom_SS",
+        "questions": [
+            {
+                "question": "How would you describe your organization’s current approach to evaluating and optimizing your marketing technology stack?",
+                 "match_criteria": {
+                 "min_matches": 4,
+              "or_group": ["Audience activation","Audience overlap analysis","Data collaboration with media partners","Incrementality or lift analysis","Measurement and attribution","Reach and frequency insights"]
+             },
+            "type": "negative_choice"
+            },
+            {
+                "question": "Are your data cleanroom(s) currently integrated with any external media, data or technology partners?",
+                "answer": "Yes, we collaborate with majority of key partners partners via cleanrooms",
+                "type": "negative_choice"
+            },
+            {
+                "question": "Do you have any Data Cleanrooms in place? If so please specify which data cleanroom(s) apply.",
+                "answer": ["Amazon Marketing Cloud (AMC)","Google Ads Data Hub (ADH)","InfoSum","LiveRamp","Snowflake","Other"]
+            }
+        ],
+        "recommendation": "Cleanroom Stewardship",
+        "overview": "We recommend maximizing the value of your existing data cleanroom by expanding both the number of integrated partners (e.g. media, retail and tech platforms) and the range of use cases. This broader usage drives marketing efficiency by enabling smarter investments, reducing duplication and delivering a more unified, data-driven strategy across channels."
+    },
+    {
+        "set_id": "RMN_CommStrat",
+        "questions": [
+            {
+                "question": "Does your organization currently monetize its first party data?",
+                "answer": "We do not currently monetize our first-party data"
+            },
+            {
+                "question": "Which of the following challenges does your organization currently face when it comes to monetizing first-party data or owned and operated channels?",
+                "answer": ["Lack of a defined monetization strategy or business case","Limited visibility into the performance or value of owned channels","Fragmented data or absence of a unified audience view","Limited internal expertise or resources to support monetization"]
+            }
+        ],
+        "recommendation": "RMN/Commerce Workshop (RMN & Commerce Strategy Development)",
+        "overview": "We recommend exploring the opportunity to develop a retail media network and commerce strategy focused on monetizing your first-party data and/or owned & operated channels. Begin with an audit of your existing channels and data assets to assess their readiness and identify your unique “right to win” value proposition. This will help uncover revenue opportunities, optimize audience activation, and create a sustainable, differentiated commerce ecosystem that drives incremental growth."
+    },
+    {
+        "set_id": "RMN_InHouse",
+        "questions": [
+            {
+                "question": "Does your organization have any of the following owned and operated channels?",
+                "answer": ["E-commerce website or app","Physical retail locations","Email or SMS marketing lists","Loyalty or rewards program","Mobile app with logged-in users","On-site product listings","Owned social media channels","Connected TV or OTT app","Self-service portal or account area","Other"]
+            },
+            {
+                "question": "Who currently manages the monetization of your owned and operated channels and/or data?",
+                "answer": ["Managed by an external agency or consultancy","Managed collaboratively by in-house teams and external agency or consultancy","Currently no clear ownership of owned & operated channel/data monetization"]
+            },
+            {
+                "question": "Does your organization currently monetize its first party data?",
+                "answer": ["Selling or licensing data to external partners","Offering audience targeting across owned inventory to brand partners","First party data matching (e.g. through clean rooms) for activations","First party data matching (e.g. through clean rooms) for insights or measurement"]
+            }
+        ],
+        "recommendation": "RMN/Commerce Workshop (In-House Management)",
+        "overview": "Consider building in-house capabilities to manage your retail media network strategy. This approach can drive greater efficiency by enabling tighter integration of data, faster decision-making, and more control over monetization levers. It also reduces reliance on third parties, allowing for more agile testing, optimization and alignment with broader business goals."
+    },
+    {
+        "set_id": "plat_af_web",
+        "match_answers_from_questions": [
+            "What web analytics platform(s) do you have in place? Select all those that apply.",
+            "Do you have an app analytics platform?"
+        ],
+        "recommendation": "Platform Architecture Optimization Wedge (Web+App)",
+        "overview": "Initial analysis suggests overlapping capabilities in web and app analytics platforms, with potential to streamline. We recommend conducting a thorough analysis of your current platform architecture to identify any overlapping capabilities, redundant technologies or critical gaps. This assessment will help streamline your martech stack, reduce unnecessary costs and ensure each platform plays a clear, complementary role. The outcome will drive greater operational efficiency, improve data integration and enable a more scalable, future-ready marketing infrastructure."
     }
 ]
 
@@ -436,6 +503,8 @@ def normalize_answer_for_comparison(answer_value):
         return ""
 
     return normalized_val
+
+
 
 def run_recommendation_analysis(df):
     """
@@ -469,6 +538,17 @@ def run_recommendation_analysis(df):
     total_matched_recommendations = 0
     total_score = 0.0
     total_max_score = 0.0
+
+    # NOTE: The RECOMMENDATION_SET is assumed to be a global or imported list
+    # of dictionaries defining the recommendation logic.
+    if 'RECOMMENDATION_SET' not in globals():
+        print("Error: RECOMMENDATION_SET is not defined.")
+        return {
+            'matched_recommendations': [],
+            'total_matched_recommendations': 0,
+            'total_score': 0.0,
+            'total_max_score': 0.0
+        }
 
     for item in RECOMMENDATION_SET:
         if "set_id" not in item:
@@ -524,53 +604,85 @@ def run_recommendation_analysis(df):
 
         else:
             # B. Grouped Questions Recommendation
-            all_sub_questions_match = True
             group_questions = item['questions']
             group_recommendation = item['recommendation']
             rec_overview = item.get('overview', 'N/A')
             rec_gmp_impact = item.get('gmpimpact', 'N/A')
             rec_business_impact = item.get('businessimpact', 'N/A')
+            
+            group_condition_met = False
+            
+            # --- Logic for 'match_answers_from_questions' ---
+            if 'match_answers_from_questions' in item and len(item['match_answers_from_questions']) == 2:
+                q1_key = item['match_answers_from_questions'][0].lower().strip()
+                q2_key = item['match_answers_from_questions'][1].lower().strip()
+                
+                q1_entry = csv_data_map.get(q1_key)
+                q2_entry = csv_data_map.get(q2_key)
+                
+                # Check if both questions exist in the CSV data and their normalized answers are the same.
+                if q1_entry and q2_entry:
+                    q1_answers = q1_entry['answers']
+                    q2_answers = q2_entry['answers']
+                    
+                    if q1_answers and q2_answers and q1_answers[0] == q2_answers[0] and q1_answers[0] != "":
+                        group_condition_met = True
+                        current_group_contributing_scores = q1_entry.get('score', 0.0) + q2_entry.get('score', 0.0)
+                        current_group_contributing_max_weights = q1_entry.get('maxweight', 0.0) + q2_entry.get('maxweight', 0.0)
+            
+            # --- Logic for 'min_matches' and 'or_group' ---
+            else:
+                contributing_matches = []
+                for sub_q_item in group_questions:
+                    sub_q_question = sub_q_item['question'].lower().strip()
+                    sub_q_answer_raw = sub_q_item['answer']
+                    sub_q_type = sub_q_item.get('type')
 
-            current_group_contributing_scores = 0.0
-            current_group_contributing_max_weights = 0.0
+                    csv_sub_q_entry = csv_data_map.get(sub_q_question)
+                    user_answers_from_csv_sub_q = csv_sub_q_entry['answers'] if csv_sub_q_entry else [] # Get list of answers
 
-            for sub_q_item in group_questions:
-                sub_q_question = sub_q_item['question'].lower().strip()
-                sub_q_answer_raw = sub_q_item['answer']
-                sub_q_type = sub_q_item.get('type')
+                    current_sub_q_condition_met = False
 
-                csv_sub_q_entry = csv_data_map.get(sub_q_question)
-                user_answers_from_csv_sub_q = csv_sub_q_entry['answers'] if csv_sub_q_entry else [] # Get list of answers
+                    if user_answers_from_csv_sub_q: # Check if there are answers from CSV for sub-question
+                        normalized_sub_q_answers = []
+                        if isinstance(sub_q_answer_raw, list):
+                            normalized_sub_q_answers = [normalize_answer_for_comparison(val) for val in sub_q_answer_raw]
+                        else:
+                            normalized_sub_q_answers = [normalize_answer_for_comparison(sub_q_answer_raw)]
 
-                current_sub_q_condition_met = False
-
-                if user_answers_from_csv_sub_q: # Check if there are answers from CSV for sub-question
-                    normalized_sub_q_answers = []
-                    if isinstance(sub_q_answer_raw, list):
-                        normalized_sub_q_answers = [normalize_answer_for_comparison(val) for val in sub_q_answer_raw]
-                    else:
-                        normalized_sub_q_answers = [normalize_answer_for_comparison(sub_q_answer_raw)]
-
-                    if sub_q_type == "negative_choice":
-                         # For negative_choice, the condition is met if NONE of the user's answers are in the specified list
-                        current_sub_q_condition_met = all(user_ans not in normalized_sub_q_answers for user_ans in user_answers_from_csv_sub_q)
-                    else:
-                        # For positive choice (default), the condition is met if ANY of the user's answers are in the specified list
-                        current_sub_q_condition_met = any(user_ans in normalized_sub_q_answers for user_ans in user_answers_from_csv_sub_q)
-
-                # If any sub-question condition is NOT met, the entire group condition fails
-                if not current_sub_q_condition_met:
-                    all_sub_questions_match = False
-                    break # Exit the inner loop as the group condition has failed
-                else:
+                        if sub_q_type == "negative_choice":
+                             # For negative_choice, the condition is met if NONE of the user's answers are in the specified list
+                            current_sub_q_condition_met = all(user_ans not in normalized_sub_q_answers for user_ans in user_answers_from_csv_sub_q)
+                        else:
+                            # For positive choice (default), the condition is met if ANY of the user's answers are in the specified list
+                            current_sub_q_condition_met = any(user_ans in normalized_sub_q_answers for user_ans in user_answers_from_csv_sub_q)
+                    
                     # If the sub-question condition IS met, add its score and maxweight
-                    if csv_sub_q_entry:
-                        current_group_contributing_scores += csv_sub_q_entry.get('score', 0.0)
-                        current_group_contributing_max_weights += csv_sub_q_entry.get('maxweight', 0.0)
+                    if current_sub_q_condition_met and csv_sub_q_entry:
+                        contributing_matches.append({
+                            'score': csv_sub_q_entry.get('score', 0.0),
+                            'maxweight': csv_sub_q_entry.get('maxweight', 0.0)
+                        })
+                
+                min_matches_required = item.get('min_matches')
+                is_or_group = item.get('or_group')
 
+                if min_matches_required is not None:
+                    # Check if the number of contributing matches meets the minimum
+                    group_condition_met = len(contributing_matches) >= min_matches_required
+                elif is_or_group:
+                    # Check if at least one sub-question matched
+                    group_condition_met = len(contributing_matches) > 0
+                else:
+                    # Default to the original 'AND' logic: all sub-questions must match
+                    group_condition_met = len(contributing_matches) == len(group_questions)
 
-            # After checking all sub-questions, if all matched, add the group recommendation
-            if all_sub_questions_match:
+                if group_condition_met:
+                    current_group_contributing_scores = sum(m['score'] for m in contributing_matches)
+                    current_group_contributing_max_weights = sum(m['maxweight'] for m in contributing_matches)
+            
+            # If the group's overall condition is met, add the group recommendation
+            if group_condition_met:
                 matched_recommendations_with_scores.append({
                     'recommendation': group_recommendation,
                     'overview': rec_overview,
@@ -589,6 +701,7 @@ def run_recommendation_analysis(df):
         'total_score': total_score,
         'total_max_score': total_max_score
     }
+
 
 # (Keep your RECOMMENDATION_SET and normalize_answer_for_comparison function here)
 
