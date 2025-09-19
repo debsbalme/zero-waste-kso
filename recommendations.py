@@ -729,7 +729,7 @@ def generate_category_summary(df):
     prompt = f"""
     You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity based on their audit responses
     Provide a summary using the answers and comments for all questions focusing on their current usage marketing maturity in their implementation for Adtech and Martech.
-    Provide the response in a set of bullet points, these will be emailed and need to be understand by sales, marketing and adtech colleagues.
+    Provide the response in the form of a written paragraph each less than 500 words.
     Please provide the summary for each of the categories provided.
     Categories: {categories}
     Questions: {questions}
@@ -744,7 +744,7 @@ def generate_category_summary(df):
             {"role": "system", "content": "Imagine you are a marketing agency focused on Adtech and Martech and Google Marketing Platform."},
             {"role": "user", "content": prompt}
         ],
-        max_tokens=1000,
+        max_tokens=2000,
         temperature=0.7
     )
 
