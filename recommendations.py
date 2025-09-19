@@ -298,6 +298,7 @@ RECOMMENDATION_SET = [
                 "answer": "Platform-native AI bidding tools (e.g. Google Smart Bidding, Meta Advantage+)"
             },
             {
+                # This question object was missing the "question" key, causing the KeyError
                 "question": "What types of data and modeling approaches does your organization currently use to inform and optimize scenario planning?",
                 "answer": "Custom auction strategies using third-party API integrations",
                 "type": "negative_choice"
@@ -506,6 +507,8 @@ def normalize_answer_for_comparison(answer_value):
 
 
 
+
+
 def run_recommendation_analysis(df):
     """
     Executes the AI Agent's logic to process DataFrame data, match recommendations,
@@ -553,6 +556,10 @@ def run_recommendation_analysis(df):
     for item in RECOMMENDATION_SET:
         if "set_id" not in item:
             # A. Single Question Recommendation
+            if 'question' not in item or 'answer' not in item:
+                print(f"Skipping recommendation item due to missing 'question' or 'answer' key: {item}")
+                continue
+
             rec_question = item['question'].lower().strip()
             rec_answer_raw = item['answer']
             rec_recommendation = item['recommendation']
@@ -608,7 +615,7 @@ def run_recommendation_analysis(df):
             rec_overview = item.get('overview', 'N/A')
             rec_gmp_impact = item.get('gmpimpact', 'N/A')
             rec_business_impact = item.get('businessimpact', 'N/A')
-            
+
             group_condition_met = False
             current_group_contributing_scores = 0.0
             current_group_contributing_max_weights = 0.0
@@ -617,25 +624,30 @@ def run_recommendation_analysis(df):
             if 'match_answers_from_questions' in item and len(item['match_answers_from_questions']) == 2:
                 q1_key = item['match_answers_from_questions'][0].lower().strip()
                 q2_key = item['match_answers_from_questions'][1].lower().strip()
-                
+
                 q1_entry = csv_data_map.get(q1_key)
                 q2_entry = csv_data_map.get(q2_key)
-                
+
                 # Check if both questions exist in the CSV data and their normalized answers are the same.
                 if q1_entry and q2_entry:
                     q1_answers = q1_entry['answers']
                     q2_answers = q2_entry['answers']
-                    
+
                     if q1_answers and q2_answers and q1_answers[0] == q2_answers[0] and q1_answers[0] != "":
                         group_condition_met = True
                         current_group_contributing_scores = q1_entry.get('score', 0.0) + q2_entry.get('score', 0.0)
                         current_group_contributing_max_weights = q1_entry.get('maxweight', 0.0) + q2_entry.get('maxweight', 0.0)
-            
+
             # --- Logic for 'min_matches', 'or_group', and 'AND' ---
             else:
                 group_questions = item['questions']
                 contributing_matches = []
                 for sub_q_item in group_questions:
+                    # Check if 'question' and 'answer' keys exist in the sub-question item
+                    if 'question' not in sub_q_item or 'answer' not in sub_q_item:
+                        print(f"Skipping sub-question item due to missing 'question' or 'answer' key: {sub_q_item}")
+                        continue
+
                     sub_q_question = sub_q_item['question'].lower().strip()
                     sub_q_answer_raw = sub_q_item['answer']
                     sub_q_type = sub_q_item.get('type')
@@ -658,14 +670,14 @@ def run_recommendation_analysis(df):
                         else:
                             # For positive choice (default), the condition is met if ANY of the user's answers are in the specified list
                             current_sub_q_condition_met = any(user_ans in normalized_sub_q_answers for user_ans in user_answers_from_csv_sub_q)
-                    
+
                     # If the sub-question condition IS met, add its score and maxweight
                     if current_sub_q_condition_met and csv_sub_q_entry:
                         contributing_matches.append({
                             'score': csv_sub_q_entry.get('score', 0.0),
                             'maxweight': csv_sub_q_entry.get('maxweight', 0.0)
                         })
-                
+
                 min_matches_required = item.get('min_matches')
                 is_or_group = item.get('or_group')
 
@@ -682,7 +694,7 @@ def run_recommendation_analysis(df):
                 if group_condition_met:
                     current_group_contributing_scores = sum(m['score'] for m in contributing_matches)
                     current_group_contributing_max_weights = sum(m['maxweight'] for m in contributing_matches)
-            
+
             # If the group's overall condition is met, add the group recommendation
             if group_condition_met:
                 matched_recommendations_with_scores.append({
@@ -696,6 +708,7 @@ def run_recommendation_analysis(df):
                 total_matched_recommendations += 1
                 total_score += current_group_contributing_scores
                 total_max_score += current_group_contributing_max_weights
+
 
     return {
         'matched_recommendations': matched_recommendations_with_scores,
