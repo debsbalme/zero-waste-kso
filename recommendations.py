@@ -8,7 +8,7 @@ import re
 from fpdf import FPDF
 
 # Define the Recommendation Set as provided in your agent's internal knowledge base
-[
+RECCOMMENDATION_SET = [
     {
         "question": "which automated bidding strategies have you used in dv360? please give further context of the performance in the comments section.",
         "answer": "Web analytics and funnel analysis",
