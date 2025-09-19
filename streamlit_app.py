@@ -97,15 +97,11 @@ def main():
                     recommendations_df = pd.DataFrame(results['matched_recommendations'])
                     recommendations_df.rename(columns={
                         'recommendation': 'Recommendation',
-                        'overview': 'Overview',
-                        'gmp_impact': 'GMP Utilization Impact',
-                        'business_impact': 'Business Impact'
+                        'overview': 'Overview'
                     }, inplace=True)
                     expected_cols = [
                         'Recommendation',
-                        'Overview',
-                        'GMP Utilization Impact',
-                        'Business Impact'
+                        'Overview'
                     ]
                     display_cols = [col for col in expected_cols if col in recommendations_df.columns]
                     st.session_state.recommendations_df = recommendations_df[display_cols]
