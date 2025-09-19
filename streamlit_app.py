@@ -7,8 +7,7 @@ from recommendations import (
     run_recommendation_analysis,
     generate_category_summary,
     generate_bullet_summary,
-    identify_top_maturity_gaps,
-    identify_top_maturity_drivers
+    identify_top_maturity_gaps
 )
 from fpdf import FPDF
 import base64
