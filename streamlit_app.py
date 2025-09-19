@@ -86,7 +86,7 @@ def main():
 
             if st.session_state.step == 3:
                 if st.button("4️⃣ Run Service Recommendations Analysis"):
-                    st.session_state.maturity_driver_df = run_recommendation_analysis(df)
+                    st.session_state.recommendation_results = run_recommendation_analysis(df)
                     st.session_state.step = 4
                     st.rerun()
 
