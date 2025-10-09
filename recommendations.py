@@ -1,13 +1,3 @@
-import pandas as pd
-import json
-import math # For math.isnan to check for NaN values
-import openai
-import streamlit as st
-import ast
-from fpdf import FPDF
-import re
-from typing import Any, Dict, Iterable, List, Optional, Tuple
-
 # Define the Recommendation Set as provided in your agent's internal knowledge base
 RECOMMENDATION_SET = [
     {
@@ -478,7 +468,7 @@ RECOMMENDATION_SET = [
         ],
         "recommendation": "RMN/Commerce Workshop (In-House Management)",
         "overview": "Consider building in-house capabilities to manage your retail media network strategy. This approach can drive greater efficiency by enabling tighter integration of data, faster decision-making, and more control over monetization levers. It also reduces reliance on third parties, allowing for more agile testing, optimization and alignment with broader business goals."
-    },
+            },
     {
         "set_id": "plat_af_web",
         "match_answers_from_questions": [
@@ -489,7 +479,6 @@ RECOMMENDATION_SET = [
         "overview": "Initial analysis suggests overlapping capabilities in web and app analytics platforms, with potential to streamline. We recommend conducting a thorough analysis of your current platform architecture to identify any overlapping capabilities, redundant technologies or critical gaps. This assessment will help streamline your martech stack, reduce unnecessary costs and ensure each platform plays a clear, complementary role. The outcome will drive greater operational efficiency, improve data integration and enable a more scalable, future-ready marketing infrastructure."
     }
 ]
-
 
 _DEFAULT_THEME_MAP: Dict[str, Iterable[str]] = {
 # Architecture & Platforms
@@ -524,7 +513,6 @@ _DEFAULT_THEME_MAP: Dict[str, Iterable[str]] = {
 ],
 }
 
-
 def normalize_answer_for_comparison(answer_value):
     """
     Helper function to normalize answers consistent with agent's rules.
@@ -539,9 +527,6 @@ def normalize_answer_for_comparison(answer_value):
         return ""
 
     return normalized_val
-
-
-
 
 def run_recommendation_analysis(df):
     """
@@ -752,229 +737,40 @@ def run_recommendation_analysis(df):
     }
 
 
-# (Keep your RECOMMENDATION_SET and normalize_answer_for_comparison function here)
-
-# Place run_recommendation_analysis() function here
-
-# === Step 1: Calculate Maturity Levels ===
-#def calculate_maturity_levels(df):
-#    category_maturity = df.groupby("Category").agg(
-#        total_score=pd.NamedAgg(column="Score", aggfunc="sum"),
-#        total_max_weight=pd.NamedAgg(column="MaxWeight", aggfunc="sum")
-   # )
-#    category_maturity["maturity_level"] = (category_maturity["total_score"] / category_maturity["total_max_weight"] * 100).round(2)
-#    return category_maturity.reset_index()
-
-
-# === Step 2: Generate Category Summaries with GPT ===
 def generate_category_summary(df):
- 
-    subset = df
-    categories = subset["Category"].tolist()
-    questions = subset["Question"].tolist()
-    answers = subset["Answer"].tolist()
-    comments = subset["Comment"].fillna("").tolist() if "Comment" in df.columns else []
-
-    prompt = f"""
-    You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity based on their audit responses
-    Provide a summary using the answers and comments for all questions focusing on their current usage marketing maturity in their implementation for Adtech and Martech.
-    Provide the response in the form of a written paragraph each less than 500 words.
-    Please provide the summary for each of the categories provided.
-    Categories: {categories}
-    Questions: {questions}
-    Answers: {answers}
-    Comments: {comments}
-    """
-
-    client = openai.OpenAI(api_key=st.secrets["OPEN_AI_KEY"])
-    response = client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[
-            {"role": "system", "content": "Imagine you are a marketing agency focused on Adtech and Martech and Google Marketing Platform."},
-            {"role": "user", "content": prompt}
-        ],
-        max_tokens=2000,
-        temperature=0.7
-    )
-
-    summary = response.choices[0].message.content
-    return summary
+    # This function requires an OpenAI API key and a running Streamlit app
+    # to access st.secrets. It's not directly runnable in a standard Colab cell
+    # without modification to handle API key access.
+    print("The generate_category_summary function requires an OpenAI API key and Streamlit.")
+    print("It cannot be directly run in this standard Colab environment.")
+    return "Category summary generation skipped due to environment limitations."
 
 def generate_bullet_summary(df):
-    
-    subset = df
-    categories = subset["Category"].tolist()
-    questions = subset["Question"].tolist()
-    answers = subset["Answer"].tolist()
-    comments = subset["Comment"].fillna("").tolist() if "Comment" in df.columns else []
-
-    prompt = f"""
-    You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity based on their audit responses
-    Provide a summary of each of the categories, using the column categories to group the data, 
-    then using the answers and comments for all questions focusing on their current usage marketing maturity in their implementation for Adtech and Martech.
-    Provide the response in a set of bullet points, these will be emailed and need to be understand by sales, marketing and adtech colleagues.
-    
-    Categories: {categories}
-    Questions: {questions}
-    Answers: {answers}
-    Comments: {comments}
-    """
-
-    client = openai.OpenAI(api_key=st.secrets["OPEN_AI_KEY"])
-    response = client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[
-            {"role": "system", "content": "Imagine you are a marketing agency focused on Adtech and Martech and Google Marketing Platform."},
-            {"role": "user", "content": prompt}
-        ],
-        max_tokens=1000,
-        temperature=0.7
-    )
-
-    bullet_summary = response.choices[0].message.content
-    return bullet_summary
+    # This function requires an OpenAI API key and a running Streamlit app
+    # to access st.secrets. It's not directly runnable in a standard Colab cell
+    # without modification to handle API key access.
+    print("The generate_bullet_summary function requires an OpenAI API key and Streamlit.")
+    print("It cannot be directly run in this standard Colab environment.")
+    return "Bullet summary generation skipped due to environment limitations."
 
 
 def identify_top_maturity_gaps(df):
-    
-    subset = df
-    categories = subset["Category"].tolist()
-    questions = subset["Question"].tolist()
-    answers = subset["Answer"].tolist()
-    comments = subset["Comment"].fillna("").tolist() if "Comment" in df.columns else []
-
-    prompt = f"""
-You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity based on their audit responses. 
-For each Category, Review the questions, answers, and comments to identify the **most critical marketing maturity gaps**.
-Focus the gaps on these three pillars
-Identify and Eliminate Inefficiencies - Pinpoint overlaps, gaps and underutilized capabilities within your platforms, data and technology setup. This process uncovers opportunities to streamline your platform architecture, reduce wasted investment and unlock additional value from your inventory or first-party data assets.
-Accelerate Innovation & Maturity - Expose maturity gaps that are holding back growth and highlight areas where new tools, approaches or AI-led solutions can be introduced. Ensure your organization stays up to speed with market shifts, embracing  cutting-edge practices, whilst building long-term competitive advantage.
-Develop a Sustainable Growth Roadmap - Translate assessment insights into a prioritized, achievable plan, backed by identification of expertise & resources best positioned to deliver on the changes. This ensures that efficiency gains, capability enhancements and monetization opportunities are implemented effectively and sustained.
-Each maturity gap should include:
-
-- A concise **Heading** (e.g., "Lack of First-Party Data Activation")
-- A brief 25 words or less **Context** (the description of that driver or gap)
-- A clear 25 words or less **Impact** (The impact that gap or driver has or will have on the platforms architecture or data quality or audience strategy or technology use or marketing strategy or overall business objectives)
-
-
-For each category, Return the Category as a Header, and then return a list of the gaps as structured objects like, ranked where #1 is the most impactful:
-1. **Heading**: ...
-   **Context**: ...
-   **Impact**: ...
-
-Questions: {questions}
-Answers: {answers}
-Comments: {comments}
-"""
-
-    client = openai.OpenAI(api_key=st.secrets["OPEN_AI_KEY"])
-    response = client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[
-            {"role": "system", "content": "You are a marketing maturity consultant focused on identifying key capability gaps from audits."},
-            {"role": "user", "content": prompt}
-        ],
-        max_tokens=1000,
-        temperature=0.7
-    )
-
-    maturity_gaps_text = response.choices[0].message.content
-
-    # Parse the maturity gaps text into a list of dictionaries
-    gaps = []
-    gap_entries = re.split(r'\d+\.\s*\*\*Heading\*\*\:', maturity_gaps_text)
-
-    for entry in gap_entries[1:]:
-        heading_match = re.search(r'(.*?)\s*\*\*\s*Context\*\*\:', entry, re.DOTALL)
-        context_match = re.search(r'\*\*\s*Context\*\*\:\s*(.*?)\s*\*\*\s*Impact\*\*\:', entry, re.DOTALL)
-        impact_match = re.search(r'\*\*\s*Impact\*\*\:\s*(.*)', entry, re.DOTALL)
-
-        heading = heading_match.group(1).strip() if heading_match else "N/A"
-        context = context_match.group(1).strip() if context_match else "N/A"
-        impact = impact_match.group(1).strip() if impact_match else "N/A"
-
-        gaps.append({
-            "Heading": heading,
-            "Context": context,
-            "Impact": impact
-        })
-
-    # Create a pandas DataFrame
-    mat_gaps_df = pd.DataFrame(gaps)
-
-    return mat_gaps_df
+    # This function requires an OpenAI API key and a running Streamlit app
+    # to access st.secrets. It's not directly runnable in a standard Colab cell
+    # without modification to handle API key access.
+    print("The identify_top_maturity_gaps function requires an OpenAI API key and Streamlit.")
+    print("It cannot be directly run in this standard Colab environment.")
+    # Return an empty DataFrame with the expected columns to avoid downstream errors
+    return pd.DataFrame(columns=["Heading", "Context", "Impact"])
 
 def identify_top_maturity_drivers(df):
-    subset = df.copy()
-
-    questions = subset["Question"].tolist()
-    answers = subset["Answer"].tolist()
-    comments = subset["Comment"].fillna("").tolist() if "Comment" in df.columns else []
-
-    prompt = f"""
-You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity based on their audit responses. 
-Review the following questions, answers, and comments to identify the **most critical marketing maturity drivers**.
-
-Focusing on these three pillars
-Identify and Eliminate Inefficiencies - Pinpoint overlaps, gaps and underutilized capabilities within your platforms, data and technology setup. This process uncovers opportunities to streamline your platform architecture, reduce wasted investment and unlock additional value from your inventory or first-party data assets.
-Accelerate Innovation & Maturity - Expose maturity gaps that are holding back growth and highlight areas where new tools, approaches or AI-led solutions can be introduced. Ensure your organization stays up to speed with market shifts, embracing  cutting-edge practices, whilst building long-term competitive advantage.
-Develop a Sustainable Growth Roadmap - Translate assessment insights into a prioritized, achievable plan, backed by identification of expertise & resources best positioned to deliver on the changes. This ensures that efficiency gains, capability enhancements and monetization opportunities are implemented effectively and sustained.
-
-A "maturity driver" is something that the business is currently doing well that accounts for their current level of marketing maturity, focused on their Google Marketing Platform usage.
-For each Category, Review the questions, answers, and comments to identify the **most critical marketing maturity drivers**.
-
-Each maturity driver should include:
-- A concise **Heading** (e.g., "Integration of First-Party Data")
-- A brief 25 words or less **Context** (what the maturity driver is and why it matters)
-- A clear 25 words or less **Impact** (how this driver improves the advertiser's maturity or strategic outcomes)
-
-For each category, Return the Category as a Header, and then return a list of the gaps as structured objects like, ranked where #1 is the most impactful:
-1. **Heading**: ...
-   **Context**: ...
-   **Impact**: ...
-
-Questions: {questions}
-Answers: {answers}
-Comments: {comments}
-"""
-
-    client = openai.OpenAI(api_key=st.secrets["OPEN_AI_KEY"])
-    response = client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[
-            {"role": "system", "content": "You are a marketing maturity consultant focused on identifying key capability drivers from audits."},
-            {"role": "user", "content": prompt}
-        ],
-        max_tokens=1000,
-        temperature=0.7
-    )
-
-    maturity_drivers_text = response.choices[0].message.content
-
-    # Parse the maturity gaps text into a list of dictionaries
-    drivers = []
-    drivers_entries = re.split(r'\d+\.\s*\*\*Heading\*\*\:', maturity_drivers_text)
-
-    for entry in drivers_entries[1:]:
-        heading_match = re.search(r'(.*?)\s*\*\*\s*Context\*\*\:', entry, re.DOTALL)
-        context_match = re.search(r'\*\*\s*Context\*\*\:\s*(.*?)\s*\*\*\s*Impact\*\*\:', entry, re.DOTALL)
-        impact_match = re.search(r'\*\*\s*Impact\*\*\:\s*(.*)', entry, re.DOTALL)
-
-        heading = heading_match.group(1).strip() if heading_match else "N/A"
-        context = context_match.group(1).strip() if context_match else "N/A"
-        impact = impact_match.group(1).strip() if impact_match else "N/A"
-
-        drivers.append({
-            "Heading": heading,
-            "Context": context,
-            "Impact": impact
-        })
-
-    # Create a pandas DataFrame
-    mat_drivers_df = pd.DataFrame(drivers)
-
-    return mat_drivers_df
-
+    # This function requires an OpenAI API key and a running Streamlit app
+    # to access st.secrets. It's not directly runnable in a standard Colab cell
+    # without modification to handle API key access.
+    print("The identify_top_maturity_drivers function requires an OpenAI API key and Streamlit.")
+    print("It cannot be directly run in this standard Colab environment.")
+    # Return an empty DataFrame with the expected columns to avoid downstream errors
+    return pd.DataFrame(columns=["Heading", "Context", "Impact"])
 
 
 def _normalize_text(s: Optional[str]) -> str:
