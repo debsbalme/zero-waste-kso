@@ -810,12 +810,13 @@ def identify_top_maturity_gaps(df):
 
     prompt = f"""
 You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity based on their audit responses. 
-Within each Category, Review the questions, answers, and comments to identify the **most critical marketing maturity gaps**.
+For each Category, Review the questions, answers, and comments to identify the **most critical marketing maturity gaps**.
 Focus the gaps on these three pillars
 Identify and Eliminate Inefficiencies - Pinpoint overlaps, gaps and underutilized capabilities within your platforms, data and technology setup. This process uncovers opportunities to streamline your platform architecture, reduce wasted investment and unlock additional value from your inventory or first-party data assets.
 Accelerate Innovation & Maturity - Expose maturity gaps that are holding back growth and highlight areas where new tools, approaches or AI-led solutions can be introduced. Ensure your organization stays up to speed with market shifts, embracing  cutting-edge practices, whilst building long-term competitive advantage.
 Develop a Sustainable Growth Roadmap - Translate assessment insights into a prioritized, achievable plan, backed by identification of expertise & resources best positioned to deliver on the changes. This ensures that efficiency gains, capability enhancements and monetization opportunities are implemented effectively and sustained.
 Each maturity gap should include:
+
 - A concise **Heading** (e.g., "Lack of First-Party Data Activation")
 - A brief 25 words or less **Context** (the description of that driver or gap)
 - A clear 25 words or less **Impact** (The impact that gap or driver has or will have on the platforms architecture or data quality or audience strategy or technology use or marketing strategy or overall business objectives)
@@ -880,13 +881,20 @@ You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity 
 Review the following questions, answers, and comments to identify the **most critical marketing maturity drivers**.
 
 A "maturity driver" is something that the business is currently doing well that accounts for their current level of marketing maturity, focused on their Google Marketing Platform usage.
+For each Category, Review the questions, answers, and comments to identify the **most critical marketing maturity drivers**.
+Focus the drivers on these three pillars
+Identify and Eliminate Inefficiencies - Pinpoint overlaps, gaps and underutilized capabilities within your platforms, data and technology setup. This process uncovers opportunities to streamline your platform architecture, reduce wasted investment and unlock additional value from your inventory or first-party data assets.
+Accelerate Innovation & Maturity - Expose maturity gaps that are holding back growth and highlight areas where new tools, approaches or AI-led solutions can be introduced. Ensure your organization stays up to speed with market shifts, embracing  cutting-edge practices, whilst building long-term competitive advantage.
+Develop a Sustainable Growth Roadmap - Translate assessment insights into a prioritized, achievable plan, backed by identification of expertise & resources best positioned to deliver on the changes. This ensures that efficiency gains, capability enhancements and monetization opportunities are implemented effectively and sustained.
+Each maturity gap should include:
+
 
 Each maturity driver should include:
 - A concise **Heading** (e.g., "Integration of First-Party Data")
 - A brief 25 words or less **Context** (what the maturity driver is and why it matters)
 - A clear 25 words or less **Impact** (how this driver improves the advertiser's maturity or strategic outcomes)
 
-Return a list of the most critical drivers as structured objects like:
+For each category, Return the Category as a Header, and then return a list of the gaps as structured objects like, ranked where #1 is the most impactful:
 1. **Heading**: ...
    **Context**: ...
    **Impact**: ...

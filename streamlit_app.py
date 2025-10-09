@@ -7,8 +7,9 @@ from recommendations import (
     run_recommendation_analysis,
     generate_category_summary,
     generate_bullet_summary,
-    identify_top_maturity_gaps
-)
+    identify_top_maturity_gaps,
+   identify_top_maturity_drivers)
+
 from fpdf import FPDF
 import base64
 
@@ -85,13 +86,23 @@ def main():
                 st.dataframe(st.session_state.maturity_gap_df, use_container_width=True)
 
             if st.session_state.step == 3:
-                if st.button("4️⃣ Run Service Recommendations Analysis"):
-                    st.session_state.recommendation_results = run_recommendation_analysis(df)
+                if st.button("4️⃣ Identify Maturity Gaps"):
+                    st.session_state.recommendation_results = identify_top_maturity_drivers(df)
                     st.session_state.step = 4
                     st.rerun()
 
             if st.session_state.step >= 4:
-                st.subheader("4️⃣ Capability Recommendations")
+                st.subheader("3️4️⃣ Maturity Gaps")
+                st.dataframe(st.session_state.maturity_gap_df, use_container_width=True)
+
+            if st.session_state.step == 4:
+                if st.button("4️5 Identify Maturity Gaps"):
+                    st.session_state.recommendation_results = identify_top_maturity_drivers(df)
+                    st.session_state.step = 5
+                    st.rerun()
+
+            if st.session_state.step >= 5:
+                st.subheader("4️5 Capability Recommendations")
                 results = st.session_state.recommendation_results
                 if results and results['matched_recommendations']:
                     recommendations_df = pd.DataFrame(results['matched_recommendations'])
