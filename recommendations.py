@@ -1180,3 +1180,52 @@ def summarize_maturity_gaps_to_bullets(
             lines.append(_format_line(idx + 1, row))
 
     return "\n".join(lines).strip()
+
+
+def matched_recs_to_df(results: Dict[str, Any]) -> pd.DataFrame:
+    """
+    Convert the dict returned by run_recommendation_analysis(...) into a tidy DataFrame
+    that’s convenient for Streamlit tables and for feeding into the PDF builder.
+
+    Columns:
+    - Recommendation
+    - Overview
+    - GMP Utilization Impact
+    - Business Impact
+    - Score
+    - MaxWeight
+    - Score %
+    """
+    recs = results.get("matched_recommendations", []) or []
+    rows = []
+    for r in recs:
+        rows.append(
+            {
+                "Recommendation": r.get("recommendation", ""),
+                "Overview": r.get("overview", ""),
+                "GMP Utilization Impact": r.get("gmp_impact", ""),
+                "Business Impact": r.get("business_impact", ""),
+                "Score": float(r.get("score", 0.0) or 0.0),
+                "MaxWeight": float(r.get("maxweight", 0.0) or 0.0),
+            }
+        )
+    df = pd.DataFrame(rows)
+    if not df.empty:
+        # Avoid divide-by-zero; show percentage to 2dp
+        df["Score %"] = (
+            df.apply(lambda x: (x["Score"] / x["MaxWeight"]) * 100 if x["MaxWeight"] else 0.0, axis=1)
+            .round(2)
+        )
+    else:
+        df = pd.DataFrame(
+            columns=[
+                "Recommendation",
+                "Overview",
+                "GMP Utilization Impact",
+                "Business Impact",
+                "Score",
+                "MaxWeight",
+                "Score %",
+            ]
+        )
+    return df
