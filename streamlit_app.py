@@ -6,7 +6,7 @@ import pandas as pd
 from datetime import datetime
 from fpdf import FPDF
 import base64
-import re
+
 
 # Import your existing functions plus the two new helpers
 from recommendations import (
@@ -15,7 +15,7 @@ from recommendations import (
     generate_bullet_summary,
     identify_top_maturity_gaps,
     identify_top_maturity_drivers,
-    matched_recs_to_df,
+#    matched_recs_to_df,
     summarize_maturity_gaps_to_bullets,
     summarize_recommendations_to_themes,
 )

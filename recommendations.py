@@ -4,7 +4,6 @@ import math # For math.isnan to check for NaN values
 import openai
 import streamlit as st
 import ast
-import re
 from fpdf import FPDF
 import re
 from typing import Dict, Iterable, List, Tuple, Optional
