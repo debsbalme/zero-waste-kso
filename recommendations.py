@@ -6,6 +6,8 @@ import streamlit as st
 import ast
 import re
 from fpdf import FPDF
+import re
+from typing import Dict, Iterable, List, Tuple, Optional
 
 # Define the Recommendation Set as provided in your agent's internal knowledge base
 RECOMMENDATION_SET = [
@@ -490,6 +492,40 @@ RECOMMENDATION_SET = [
 ]
 
 
+_DEFAULT_THEME_MAP: Dict[str, Iterable[str]] = {
+# Architecture & Platforms
+"Platform Architecture Optimization": [
+"architecture", "platform", "stack", "redundant", "overlap", "streamline", "optimization wedge",
+"web analytics", "app analytics", "data warehouse", "bigquery", "redshift", "snowflake", "synapse",
+],
+# Data & AI modelling / forecasting
+"Data & AI Modelling & Forecasting": [
+"model", "modelling", "modeling", "uplift", "propensity", "forecast", "time-series", "diminishing",
+"incrementality", "auction", "optimization", "scenario", "predict", "clv",
+],
+# Audiences (build, lookalike, suppression, overlap)
+"Audience Strategy & Activation": [
+"audience", "lookalike", "similarity", "suppression", "overlap", "segment", "activation", "prospecting",
+"high-value", "reach", "frequency", "wasted impressions",
+],
+# Analytics & CX
+"Analytics & Customer Experience": [
+"analytics", "heatmap", "heatmapping", "funnel", "journey", "conversion path", "cx", "experience",
+"web analytics audit", "site analytics",
+],
+# Cleanrooms & data collaboration
+"Data Cleanrooms & Collaboration": [
+"cleanroom", "clean room", "ads data hub", "adh", "amazon marketing cloud", "amc", "infosum", "liveramp",
+"collaboration", "match rate",
+],
+# Retail media & monetization
+"Retail Media & Monetization": [
+"retail media", "rmn", "monetization", "in-house", "owned and operated", "o&o", "commerce",
+"data enrichment", "partner",
+],
+}
+
+
 def normalize_answer_for_comparison(answer_value):
     """
     Helper function to normalize answers consistent with agent's rules.
@@ -880,14 +916,13 @@ def identify_top_maturity_drivers(df):
 You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity based on their audit responses. 
 Review the following questions, answers, and comments to identify the **most critical marketing maturity drivers**.
 
-A "maturity driver" is something that the business is currently doing well that accounts for their current level of marketing maturity, focused on their Google Marketing Platform usage.
-For each Category, Review the questions, answers, and comments to identify the **most critical marketing maturity drivers**.
-Focus the drivers on these three pillars
+Focusing on these three pillars
 Identify and Eliminate Inefficiencies - Pinpoint overlaps, gaps and underutilized capabilities within your platforms, data and technology setup. This process uncovers opportunities to streamline your platform architecture, reduce wasted investment and unlock additional value from your inventory or first-party data assets.
 Accelerate Innovation & Maturity - Expose maturity gaps that are holding back growth and highlight areas where new tools, approaches or AI-led solutions can be introduced. Ensure your organization stays up to speed with market shifts, embracing  cutting-edge practices, whilst building long-term competitive advantage.
 Develop a Sustainable Growth Roadmap - Translate assessment insights into a prioritized, achievable plan, backed by identification of expertise & resources best positioned to deliver on the changes. This ensures that efficiency gains, capability enhancements and monetization opportunities are implemented effectively and sustained.
-Each maturity gap should include:
 
+A "maturity driver" is something that the business is currently doing well that accounts for their current level of marketing maturity, focused on their Google Marketing Platform usage.
+For each Category, Review the questions, answers, and comments to identify the **most critical marketing maturity drivers**.
 
 Each maturity driver should include:
 - A concise **Heading** (e.g., "Integration of First-Party Data")
@@ -941,40 +976,207 @@ Comments: {comments}
 
     return mat_drivers_df
 
-def create_full_report_pdf(summary, bullet_points, gaps_df, drivers_df, recommendations_df):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.set_font("Arial", size=12)
 
-    pdf.set_font(style="B")
-    pdf.cell(0, 10, "Category Summary", ln=True)
-    pdf.set_font(style="")
-    for line in summary.split("\n"):
-        pdf.multi_cell(0, 10, line)
 
-    pdf.set_font(style="B")
-    pdf.cell(0, 10, "\nBullet Summary", ln=True)
-    pdf.set_font(style="")
-    for line in bullet_points.split("\n"):
-        pdf.multi_cell(0, 10, line)
+def _normalize_text(s: Optional[str]) -> str:
+    if s is None or (isinstance(s, float) and pd.isna(s)):
+        return ""
+    return re.sub(r"\s+", " ", str(s).lower()).strip()
 
-    pdf.set_font(style="B")
-    pdf.cell(0, 10, "\nTop Maturity Gaps", ln=True)
-    pdf.set_font(style="")
-    for _, row in gaps_df.iterrows():
-        pdf.multi_cell(0, 10, f"Heading: {row['Heading']}\nContext: {row['Context']}\nImpact: {row['Impact']}\n")
 
-    pdf.set_font(style="B")
-    pdf.cell(0, 10, "\nTop Maturity Drivers", ln=True)
-    pdf.set_font(style="")
-    for _, row in drivers_df.iterrows():
-        pdf.multi_cell(0, 10, f"Heading: {row['Heading']}\nContext: {row['Context']}\nOpportunity: {row['Opportunity']}\n")
+def _best_theme(text: str, theme_map: Dict[str, Iterable[str]]) -> Tuple[str, int]:
+    """Return (theme, score) with highest keyword hits; 'Other' if none."""
+    best_theme, best_score = "Other", 0
+    for theme, keywords in theme_map.items():
+        score = 0
+        for kw in keywords:
+            # word boundary for single tokens; simple contains for phrases
+            if " " in kw:
+                score += text.count(kw)
+            else:
+                score += len(re.findall(rf"\b{re.escape(kw)}\b", text))
+        if score > best_score:
+            best_theme, best_score = theme, score
+    return (best_theme if best_score > 0 else "Other", best_score)
 
-    pdf.set_font(style="B")
-    pdf.cell(0, 10, "\nRecommendations", ln=True)
-    pdf.set_font(style="")
-    for _, row in recommendations_df.iterrows():
-        pdf.multi_cell(0, 10, f"Recommendation: {row['Recommendation']}\nOverview: {row['Overview']}\nGMP Impact: {row['GMP Utilization Impact']}\nBusiness Impact: {row['Business Impact']}\n")
 
-    return pdf.output(dest="S").encode("latin1")
+def summarize_recommendations_to_themes(
+    recommendations_df: pd.DataFrame,
+    theme_map: Optional[Dict[str, Iterable[str]]] = None,
+    top_k: int = 6,
+    include_examples: bool = True,
+    example_limit: int = 3,
+    markdown: bool = True,
+) -> Tuple[pd.DataFrame, str]:
+    """
+    Group `recommendations_df` into a handful of key themes using a lightweight, keyword-based classifier.
+
+    Expected columns (robust to missing):
+      - 'Recommendation' (title)
+      - 'Overview'
+      - 'GMP Utilization Impact'
+      - 'Business Impact'
+      - 'Score', 'MaxWeight', 'Score %'
+
+    Returns:
+      (themes_df, summary_md)
+        - themes_df columns: ['Theme','Count','Total Score','Total MaxWeight','Avg Score %','Examples']
+        - summary_md: readable markdown summary (bullets grouped by theme)
+    """
+    if recommendations_df is None or recommendations_df.empty:
+        empty = pd.DataFrame(columns=[
+            "Theme", "Count", "Total Score", "Total MaxWeight", "Avg Score %", "Examples"
+        ])
+        return empty, ("No recommendations matched." if markdown else "No recommendations matched.")
+
+    theme_map = theme_map or _DEFAULT_THEME_MAP
+
+    df = recommendations_df.copy()
+    # Ensure numeric fields exist
+    for col in ("Score", "MaxWeight"):
+        if col not in df.columns:
+            df[col] = 0.0
+    if "Score %" not in df.columns:
+        df["Score %"] = df.apply(lambda x: (float(x.get("Score", 0)) / float(x.get("MaxWeight", 0))) * 100 if float(x.get("MaxWeight", 0)) else 0.0, axis=1)
+
+    texts = (
+        df.get("Recommendation", "").fillna("").astype(str)
+        + " \n" + df.get("Overview", "").fillna("").astype(str)
+        + " \n" + df.get("GMP Utilization Impact", "").fillna("").astype(str)
+        + " \n" + df.get("Business Impact", "").fillna("").astype(str)
+    ).apply(_normalize_text)
+
+    # Classify to themes
+    themes: List[str] = []
+    scores: List[int] = []
+    for t in texts:
+        theme, score = _best_theme(t, theme_map)
+        themes.append(theme)
+        scores.append(score)
+    df["_theme"] = themes
+    df["_theme_score"] = scores
+
+    # Aggregate
+    agg = (
+        df.groupby("_theme")
+          .agg(Count=("_theme", "count"),
+               **{"Total Score": ("Score", "sum"),
+                  "Total MaxWeight": ("MaxWeight", "sum"),
+                  "Avg Score %": ("Score %", "mean")})
+          .reset_index()
+          .rename(columns={"_theme": "Theme"})
+    )
+    agg["Avg Score %"] = agg["Avg Score %"].round(2)
+
+    # Example titles per theme
+    examples_map: Dict[str, List[str]] = {}
+    if include_examples:
+        for theme, sub in df.sort_values("_theme_score", ascending=False).groupby("_theme"):
+            examples_map[theme] = sub["Recommendation"].fillna("").astype(str).head(example_limit).tolist()
+        agg["Examples"] = agg["Theme"].map(lambda t: "; ".join(examples_map.get(t, [])))
+    else:
+        agg["Examples"] = ""
+
+    # Rank & limit
+    agg = agg.sort_values(["Count", "Total Score"], ascending=[False, False]).head(top_k)
+
+    # Markdown summary
+    if markdown:
+        lines = ["**Key Recommendation Themes**"]
+        for _, row in agg.iterrows():
+            theme = row["Theme"]
+            cnt = int(row["Count"]) if not pd.isna(row["Count"]) else 0
+            total_score = float(row["Total Score"]) if not pd.isna(row["Total Score"]) else 0.0
+            avg_pct = float(row["Avg Score %"]) if not pd.isna(row["Avg Score %"]) else 0.0
+            examples = row.get("Examples", "")
+            line = f"- **{theme}** — {cnt} recs | Avg score: {avg_pct:.1f}% | Total score: {total_score:.2f}"
+            lines.append(line)
+            if include_examples and examples:
+                lines.append(f"  - _Examples_: {examples}")
+        summary_md = "\n".join(lines)
+    else:
+        lines = ["Key Recommendation Themes"]
+        for _, row in agg.iterrows():
+            theme = row["Theme"]
+            cnt = int(row["Count"]) if not pd.isna(row["Count"]) else 0
+            total_score = float(row["Total Score"]) if not pd.isna(row["Total Score"]) else 0.0
+            avg_pct = float(row["Avg Score %"]) if not pd.isna(row["Avg Score %"]) else 0.0
+            examples = row.get("Examples", "")
+            line = f"- {theme} — {cnt} recs | Avg score: {avg_pct:.1f}% | Total score: {total_score:.2f}"
+            lines.append(line)
+            if include_examples and examples:
+                lines.append(f"  - Examples: {examples}")
+        summary_md = "\n".join(lines)
+
+    return agg.reset_index(drop=True), summary_md
+
+
+
+def _truncate(text: str, max_len: int = 180) -> str:
+    if text is None:
+        return ""
+    s = str(text).strip()
+    return s if len(s) <= max_len else s[: max_len - 1].rstrip() + "…"
+
+
+def summarize_maturity_gaps_to_bullets(
+    gaps_df: pd.DataFrame,
+    per_category_limit: int = 5,
+    include_numbers: bool = True,
+    max_snippet_len: int = 160,
+    markdown: bool = True,
+) -> str:
+    """
+    Turn the output of identify_top_maturity_gaps(df) into concise bullet points.
+
+    Expected columns in `gaps_df`: "Heading", "Context", "Impact".
+    If a "Category" column is present, bullets are grouped under each category header.
+
+    Args:
+        gaps_df: DataFrame from identify_top_maturity_gaps().
+        per_category_limit: Max bullets per category (or overall if no categories).
+        include_numbers: Prefix bullets with 1., 2., ... when True; use dashes otherwise.
+        max_snippet_len: Truncate Context/Impact snippets to this length for readability.
+        markdown: When True, returns markdown-friendly bullets; otherwise plain text.
+
+    Returns:
+        str: Bulleted summary suitable for emails, PDFs, or Streamlit text.
+    """
+    if gaps_df is None or gaps_df.empty:
+        return "No maturity gaps identified."
+
+    # Ensure required columns exist
+    for col in ("Heading", "Context", "Impact"):
+        if col not in gaps_df.columns:
+            gaps_df[col] = ""
+
+    def _format_line(i: int, row: pd.Series) -> str:
+        bullet = f"{i}. " if include_numbers else "- "
+        head = str(row.get("Heading", "")).strip() or "Untitled Gap"
+        ctx = _truncate(row.get("Context", ""), max_snippet_len)
+        imp = _truncate(row.get("Impact", ""), max_snippet_len)
+        if markdown:
+            return f"{bullet}**{head}** — {ctx} _(Impact: {imp})_"
+        return f"{bullet}{head} — {ctx} (Impact: {imp})"
+
+    lines = []
+
+    if "Category" in gaps_df.columns:
+        # Grouped by category
+        for cat, sub in gaps_df.groupby("Category", dropna=False):
+            cat_name = str(cat) if pd.notna(cat) else "Uncategorized"
+            if markdown:
+                lines.append(f"### {cat_name}")
+            else:
+                lines.append(cat_name.upper())
+            sub = sub.reset_index(drop=True).head(per_category_limit)
+            for idx, row in sub.iterrows():
+                lines.append(_format_line(idx + 1, row))
+            lines.append("")  # spacer between categories
+    else:
+        # Flat list
+        sub = gaps_df.reset_index(drop=True).head(per_category_limit)
+        for idx, row in sub.iterrows():
+            lines.append(_format_line(idx + 1, row))
+
+    return "\n".join(lines).strip()
