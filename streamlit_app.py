@@ -6,6 +6,7 @@ import pandas as pd
 from datetime import datetime
 from fpdf import FPDF
 import base64
+import re
 
 # Import your existing functions plus the two new helpers
 from recommendations import (
