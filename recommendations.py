@@ -835,29 +835,75 @@ def generate_bullet_summary(df):
     return bullet_summary
 
 
-def identify_top_maturity_gaps(df):
-    
-    subset = df
-    categories = subset["Category"].tolist()
-    questions = subset["Question"].tolist()
-    answers = subset["Answer"].tolist()
-    comments = subset["Comment"].fillna("").tolist() if "Comment" in df.columns else []
+def identify_top_maturity_gaps(df, model_name: str = "gpt-4.1-mini", max_tokens: int = 1200) -> pd.DataFrame:
+    """
+    Generate maturity gaps PER CATEGORY using the 'Category' column.
+    Returns a DataFrame with columns: Category, Heading, Context, Impact.
 
-    prompt = f"""
-You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity based on their audit responses. 
-For each Category, Review the questions, answers, and comments to identify the **most critical marketing maturity gaps**.
-Focus the gaps on these three pillars
-Identify and Eliminate Inefficiencies - Pinpoint overlaps, gaps and underutilized capabilities within your platforms, data and technology setup. This process uncovers opportunities to streamline your platform architecture, reduce wasted investment and unlock additional value from your inventory or first-party data assets.
-Accelerate Innovation & Maturity - Expose maturity gaps that are holding back growth and highlight areas where new tools, approaches or AI-led solutions can be introduced. Ensure your organization stays up to speed with market shifts, embracing  cutting-edge practices, whilst building long-term competitive advantage.
-Develop a Sustainable Growth Roadmap - Translate assessment insights into a prioritized, achievable plan, backed by identification of expertise & resources best positioned to deliver on the changes. This ensures that efficiency gains, capability enhancements and monetization opportunities are implemented effectively and sustained.
-Each maturity gap should include:
+    Notes:
+      - Loops each category separately to keep outputs well-scoped.
+      - Robust parsing for numbered gaps in the format:
+          1. **Heading**: ...
+             **Context**: ...
+             **Impact**: ...
+      - Skips empty/missing categories gracefully.
+    """
+    if df is None or df.empty:
+        return pd.DataFrame(columns=["Category", "Heading", "Context", "Impact"])
 
-- A concise **Heading** (e.g., "Lack of First-Party Data Activation")
-- A brief 25 words or less **Context** (the description of that driver or gap)
-- A clear 25 words or less **Impact** (The impact that gap or driver has or will have on the platforms architecture or data quality or audience strategy or technology use or marketing strategy or overall business objectives)
+    # Ensure required columns exist
+    for col in ["Category", "Question", "Answer"]:
+        if col not in df.columns:
+            raise ValueError(f"Missing required column: '{col}'")
 
+    # Safe comments field
+    has_comments = "Comment" in df.columns
 
-For each category, Return the Category as a Header, and then return a list of the gaps as structured objects like, ranked where #1 is the most impactful:
+    all_rows = []
+
+    # Iterate categories (string-cast to avoid nan weirdness)
+    categories = (
+        df["Category"]
+        .apply(lambda x: "" if pd.isna(x) else str(x))
+        .unique()
+        .tolist()
+    )
+
+    # Remove empty category labels if any
+    categories = [c for c in categories if c.strip() != ""]
+
+    if not categories:
+        return pd.DataFrame(columns=["Category", "Heading", "Context", "Impact"])
+
+    client = openai.OpenAI(api_key=st.secrets["OPEN_AI_KEY"])
+
+    for cat in categories:
+        sub = df[df["Category"].astype(str) == cat].copy()
+        if sub.empty:
+            continue
+
+        questions = sub["Question"].fillna("").astype(str).tolist()
+        answers = sub["Answer"].fillna("").astype(str).tolist()
+        comments = sub["Comment"].fillna("").astype(str).tolist() if has_comments else []
+
+        prompt = f"""
+You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity based on their audit responses.
+
+Focus ONLY on the Category: "{cat}".
+
+From the questions, answers, and (if provided) comments below, identify the most critical **marketing maturity gaps** for this category.
+
+Anchor your thinking to these three pillars:
+1) Identify & Eliminate Inefficiencies — overlaps, gaps, and underutilized capabilities across platforms, data, and tech; streamline architecture; reduce wasted investment.
+2) Accelerate Innovation & Maturity — expose gaps blocking growth; introduce new tools, approaches, or AI-led solutions to keep pace with market shifts.
+3) Develop a Sustainable Growth Roadmap — translate insights into a prioritized, achievable plan with resourcing, so gains are implemented and sustained.
+
+For each gap, return:
+- **Heading**: concise title (e.g., "Lack of First-Party Data Activation")
+- **Context**: ≤25 words describing the gap
+- **Impact**: ≤25 words on impact to platform architecture, data quality, audience strategy, technology use, marketing strategy, or business outcomes
+
+Output strictly as a numbered list:
 1. **Heading**: ...
    **Context**: ...
    **Impact**: ...
@@ -865,44 +911,72 @@ For each category, Return the Category as a Header, and then return a list of th
 Questions: {questions}
 Answers: {answers}
 Comments: {comments}
-"""
+        """.strip()
 
-    client = openai.OpenAI(api_key=st.secrets["OPEN_AI_KEY"])
-    response = client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[
-            {"role": "system", "content": "You are a marketing maturity consultant focused on identifying key capability gaps from audits."},
-            {"role": "user", "content": prompt}
-        ],
-        max_tokens=1000,
-        temperature=0.7
-    )
+        resp = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": "You are a marketing maturity consultant focused on identifying key capability gaps from audits."},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=max_tokens,
+            temperature=0.6,
+        )
 
-    maturity_gaps_text = response.choices[0].message.content
+        text = resp.choices[0].message.content if resp and resp.choices else ""
 
-    # Parse the maturity gaps text into a list of dictionaries
-    gaps = []
-    gap_entries = re.split(r'\d+\.\s*\*\*Heading\*\*\:', maturity_gaps_text)
+        # --- Parse the maturity gaps text into rows for this category ---
+        gaps = []
+        # split on "1. **Heading**:" / "2. **Heading**:" etc
+        parts = re.split(r'\n?\s*\d+\.\s*\*\*Heading\*\*\s*:\s*', text)
+        # First split element is preamble; skip it
+        for chunk in parts[1:]:
+            # heading is the text up to **Context**:
+            heading_match = re.match(r'(.*?)\s*\*\*\s*Context\*\*\s*:\s*(.*)', chunk, re.DOTALL)
+            if heading_match:
+                heading_text = heading_match.group(1).strip()
+                rest = heading_match.group(2)
+            else:
+                # fallback: try to parse up to a newline
+                first_line = chunk.strip().splitlines()[0] if chunk.strip() else "N/A"
+                heading_text = first_line.strip()
+                rest = chunk[len(first_line):]
 
-    for entry in gap_entries[1:]:
-        heading_match = re.search(r'(.*?)\s*\*\*\s*Context\*\*\:', entry, re.DOTALL)
-        context_match = re.search(r'\*\*\s*Context\*\*\:\s*(.*?)\s*\*\*\s*Impact\*\*\:', entry, re.DOTALL)
-        impact_match = re.search(r'\*\*\s*Impact\*\*\:\s*(.*)', entry, re.DOTALL)
+            context_match = re.search(r'\*\*\s*Context\*\*\s*:\s*(.*?)\s*\*\*\s*Impact\*\*\s*:\s*(.*)', rest, re.DOTALL)
+            if context_match:
+                context_text = context_match.group(1).strip()
+                impact_text = context_match.group(2).strip()
+            else:
+                # Fallback: try to grab lines labeled Context/Impact even if formatting drifts
+                context_alt = re.search(r'Context\s*:\s*(.*)', rest)
+                impact_alt = re.search(r'Impact\s*:\s*(.*)', rest)
+                context_text = context_alt.group(1).strip() if context_alt else "N/A"
+                impact_text = impact_alt.group(1).strip() if impact_alt else "N/A"
 
-        heading = heading_match.group(1).strip() if heading_match else "N/A"
-        context = context_match.group(1).strip() if context_match else "N/A"
-        impact = impact_match.group(1).strip() if impact_match else "N/A"
+            gaps.append({
+                "Category": cat,
+                "Heading": heading_text or "N/A",
+                "Context": context_text or "N/A",
+                "Impact": impact_text or "N/A",
+            })
 
-        gaps.append({
-            "Heading": heading,
-            "Context": context,
-            "Impact": impact
-        })
+        all_rows.extend(gaps)
 
-    # Create a pandas DataFrame
-    mat_gaps_df = pd.DataFrame(gaps)
+    mat_gaps_df = pd.DataFrame(all_rows, columns=["Category", "Heading", "Context", "Impact"])
+
+    # Drop empty rows if any
+    if not mat_gaps_df.empty:
+        mat_gaps_df = mat_gaps_df[
+            ~(
+                mat_gaps_df[["Heading", "Context", "Impact"]]
+                .replace("N/A", "")
+                .apply(lambda r: all(x.strip() == "" for x in r), axis=1)
+            )
+        ].reset_index(drop=True)
 
     return mat_gaps_df
+ 
+
 
 def identify_top_maturity_drivers(df):
     subset = df.copy()
