@@ -1073,6 +1073,115 @@ def _best_theme(text: str, theme_map: Dict[str, Iterable[str]]) -> Tuple[str, in
     return (best_theme if best_score > 0 else "Other", best_score)
 
 
+
+
+def process_and_summarize_recommendations(
+    recommendations_df: pd.DataFrame,
+    theme_map: Optional[Dict[str, Iterable[str]]] = None,
+    top_k: int = 6,
+    include_examples: bool = True,
+    example_limit: int = 3,
+    openai_api_key: str = "YOUR_API_KEY" # Replace with your actual key or use secrets management
+) -> Tuple[pd.DataFrame, Dict[str, str]]:
+    """
+    Groups recommendations by theme, gets summaries from ChatGPT, and returns
+    the themes DataFrame and a dictionary of theme summaries.
+
+    Args:
+        recommendations_df: DataFrame containing recommendations.
+        theme_map: Dictionary mapping theme names to keywords.
+        top_k: Number of top themes to include.
+        include_examples: Whether to include examples in the themes DataFrame.
+        example_limit: Maximum number of examples per theme.
+        openai_api_key: Your OpenAI API key.
+
+    Returns:
+        A tuple containing:
+            - themes_df: DataFrame with theme summaries (Theme, Count, Examples).
+            - theme_summaries: Dictionary with theme names as keys and ChatGPT summaries as values.
+    """
+    # Ensure the necessary helper functions are defined (assuming they are in the environment)
+    if '_normalize_text' not in globals() or '_best_theme' not in globals():
+         print("Error: Required helper functions (_normalize_text, _best_theme) are not defined.")
+         return pd.DataFrame(), {}
+
+    # 1. Group recommendations by theme using the existing function
+    themes_df, _ = summarize_recommendations_to_themes(
+        recommendations_df,
+        theme_map=theme_map,
+        top_k=top_k,
+        include_examples=include_examples,
+        example_limit=example_limit,
+        markdown=False # No need for markdown summary at this stage
+    )
+
+    if themes_df.empty:
+        print("No themes identified.")
+        return themes_df, {}
+
+    # Add the _theme column to the original recommendations_df for grouping
+    df_themed = recommendations_df.copy()
+    texts_for_theming = (
+        df_themed.get("Recommendation", "").fillna("").astype(str)
+        + " \n" + df_themed.get("Overview", "").fillna("").astype(str)
+        + " \n" + df_themed.get("GMP Utilization Impact", "").fillna("").astype(str)
+        + " \n" + df_themed.get("Business Impact", "").fillna("").astype(str)
+    ).apply(_normalize_text)
+
+    themes_for_df: List[str] = []
+    current_theme_map = theme_map or _DEFAULT_THEME_MAP # Use default if none provided
+    for t in texts_for_theming:
+        theme, _ = _best_theme(t, current_theme_map)
+        themes_for_df.append(theme)
+    df_themed['_theme'] = themes_for_df
+
+    # Group the original recommendations DataFrame by the new _theme column
+    themed_recommendations = df_themed.groupby('_theme')
+
+    # 2. Prepare data for ChatGPT
+    recommendations_by_theme_text = {}
+    for theme, group in themed_recommendations:
+        theme_text = f"Theme: {theme}\nRecommendations:\n"
+        for index, row in group.iterrows():
+            theme_text += f"- Recommendation: {row.get('Recommendation', '')}\n"
+            theme_text += f"  Overview: {row.get('Overview', '')}\n"
+        recommendations_by_theme_text[theme] = theme_text
+
+    # 3. Call ChatGPT API
+    openai.api_key = openai_api_key
+    theme_summaries = {}
+
+    for theme, text in recommendations_by_theme_text.items():
+        prompt = f"Summarize the following recommendations for the theme '{theme}':\n\n{text}"
+        try:
+            response = openai.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant that summarizes recommendations."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=150
+            )
+            summary = response.choices[0].message.content.strip()
+            theme_summaries[theme] = summary
+        except Exception as e:
+            print(f"An error occurred while summarizing theme '{theme}': {e}")
+            theme_summaries[theme] = f"Error summarizing theme: {e}"
+
+    # 4. Present the summaries (optional - can be done outside the function)
+    print("\n--- ChatGPT Summaries by Theme ---")
+    for theme, summary in theme_summaries.items():
+        print(f"## Theme: {theme}")
+        print(f"{summary}")
+        print("-" * 30) # Separator for clarity
+
+    return themes_df, theme_summaries
+
+# Note: This function relies on _normalize_text and _best_theme being defined
+# in the environment where it is called. It also requires the OpenAI API key
+# to be set correctly.
+
+
 def summarize_recommendations_to_themes(
     recommendations_df: pd.DataFrame,
     theme_map: Optional[Dict[str, Iterable[str]]] = None,
