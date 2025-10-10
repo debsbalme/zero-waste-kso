@@ -92,7 +92,7 @@ def main():
                     st.session_state.exec_themes_df = themes_df
                     st.session_state.exec_themes_md = themes_md
                     st.session_state.exec_gaps_df = gaps_df
-                    st.session_state.exec_gaps_md = gaps_md
+                    st.session_state.exec_gaps_md = summary_md
 
                     # High-level KPIs
                     st.session_state.exec_total_recs = rec_results.get('total_matched_recommendations', 0)

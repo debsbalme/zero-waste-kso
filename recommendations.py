@@ -1192,67 +1192,93 @@ def _truncate(text: str, max_len: int = 180) -> str:
     return s if len(s) <= max_len else s[: max_len - 1].rstrip() + "…"
 
 
-def summarize_maturity_gaps_to_bullets(
+def summarize_maturity_gaps_with_openai(
     gaps_df: pd.DataFrame,
     per_category_limit: int = 5,
-    include_numbers: bool = True,
-    max_snippet_len: int = 160,
-    markdown: bool = True,
+    model_name: str = "gpt-4.1-mini",
+    max_tokens: int = 900,
+    style: str = "bullets",   # "bullets" | "narrative" | "exec_summary"
 ) -> str:
     """
-    Turn the output of identify_top_maturity_gaps(df) into concise bullet points.
+    Summarize maturity gaps returned by identify_top_maturity_gaps(...).
+    Expects columns: Category, Heading, Context, Impact.
 
-    Expected columns in `gaps_df`: "Heading", "Context", "Impact".
-    If a "Category" column is present, bullets are grouped under each category header.
-
-    Args:
-        gaps_df: DataFrame from identify_top_maturity_gaps().
-        per_category_limit: Max bullets per category (or overall if no categories).
-        include_numbers: Prefix bullets with 1., 2., ... when True; use dashes otherwise.
-        max_snippet_len: Truncate Context/Impact snippets to this length for readability.
-        markdown: When True, returns markdown-friendly bullets; otherwise plain text.
-
-    Returns:
-        str: Bulleted summary suitable for emails, PDFs, or Streamlit text.
+    Returns a Markdown string suitable for Streamlit display or emailing.
     """
-    if gaps_df is None or gaps_df.empty:
-        return "No maturity gaps identified."
+    required = {"Category", "Heading", "Context", "Impact"}
+    if gaps_df is None or gaps_df.empty or not required.issubset(set(gaps_df.columns)):
+        return "No maturity gaps to summarize."
 
-    # Ensure required columns exist
-    for col in ("Heading", "Context", "Impact"):
-        if col not in gaps_df.columns:
-            gaps_df[col] = ""
+    # Trim rows per category to keep the prompt compact & predictable
+    trimmed = (
+        gaps_df
+        .copy()
+        .sort_values(["Category", "Heading"])
+        .groupby("Category", dropna=False)
+        .head(per_category_limit)
+        .reset_index(drop=True)
+    )
 
-    def _format_line(i: int, row: pd.Series) -> str:
-        bullet = f"{i}. " if include_numbers else "- "
-        head = str(row.get("Heading", "")).strip() or "Untitled Gap"
-        ctx = _truncate(row.get("Context", ""), max_snippet_len)
-        imp = _truncate(row.get("Impact", ""), max_snippet_len)
-        if markdown:
-            return f"{bullet}**{head}** — {ctx} _(Impact: {imp})_"
-        return f"{bullet}{head} — {ctx} (Impact: {imp})"
+    # Convert to a minimal, model-friendly structure
+    grouped: Dict[str, List[Dict[str, str]]] = {}
+    for cat, sub in trimmed.groupby("Category", dropna=False):
+        cat_name = "Uncategorized" if (cat is None or str(cat).strip() == "") else str(cat)
+        grouped[cat_name] = [
+            {
+                "heading": str(row["Heading"]).strip(),
+                "context": str(row["Context"]).strip(),
+                "impact":  str(row["Impact"]).strip(),
+            }
+            for _, row in sub.iterrows()
+        ]
 
-    lines = []
+    # You can switch styles to change the ask without changing data
+    style_instructions = {
+        "bullets": (
+            "Return a concise Markdown summary grouped by Category. "
+            "Under each Category, list 3–6 bullet points. "
+            "Each bullet should be: **Heading** — Context (≤20 words). _Impact: ... (≤20 words)_. "
+            "Avoid repetition; merge similar items. End with 3 cross-category priorities."
+        ),
+        "narrative": (
+            "Return a concise narrative per Category (≤120 words each), synthesizing the gaps into themes. "
+            "Finish with a cross-category paragraph on the biggest risks and the near-term focus."
+        ),
+        "exec_summary": (
+            "Return a one-page executive summary: 5–7 bullets total (not per Category). "
+            "Capture the most material risks across all Categories, ranked, each with a crisp business impact. "
+            "Close with a 30/60/90-day action outline."
+        )
+    }.get(style, "Return a concise Markdown summary grouped by Category with bullets per Category and a short cross-category wrap-up.")
 
-    if "Category" in gaps_df.columns:
-        # Grouped by category
-        for cat, sub in gaps_df.groupby("Category", dropna=False):
-            cat_name = str(cat) if pd.notna(cat) else "Uncategorized"
-            if markdown:
-                lines.append(f"### {cat_name}")
-            else:
-                lines.append(cat_name.upper())
-            sub = sub.reset_index(drop=True).head(per_category_limit)
-            for idx, row in sub.iterrows():
-                lines.append(_format_line(idx + 1, row))
-            lines.append("")  # spacer between categories
-    else:
-        # Flat list
-        sub = gaps_df.reset_index(drop=True).head(per_category_limit)
-        for idx, row in sub.iterrows():
-            lines.append(_format_line(idx + 1, row))
+    prompt = f"""
+You are a senior Adtech/Martech maturity consultant. Summarize the following category-tagged maturity gaps.
 
-    return "\n".join(lines).strip()
+{style_instructions}
+
+IMPORTANT:
+- Do not invent facts; only use the provided items.
+- Prefer synthesis over duplication; if multiple bullets overlap, merge them.
+- Keep the language plain and action-oriented.
+- Do not exceed ~500 words total unless needed.
+
+GAPS (JSON):
+{json.dumps(grouped, ensure_ascii=False, indent=2)}
+    """.strip()
+
+    client = openai.OpenAI(api_key=st.secrets["OPEN_AI_KEY"])
+    resp = client.chat.completions.create(
+        model=model_name,
+        messages=[
+            {"role": "system", "content": "You are a marketing maturity consultant who writes crisp, executive-ready summaries."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.5,
+        max_tokens=max_tokens,
+    )
+
+    summary_md = resp.choices[0].message.content if resp and resp.choices else "No summary generated."
+    return summary_md
 
 
 def matched_recs_to_df(results: Dict[str, Any]) -> pd.DataFrame:
