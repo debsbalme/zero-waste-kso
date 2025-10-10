@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import base64
 import re
+import base64
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 # Define the Recommendation Set as provided in your agent's internal knowledge base

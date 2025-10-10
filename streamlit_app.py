@@ -5,7 +5,6 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import base64
-import re
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
