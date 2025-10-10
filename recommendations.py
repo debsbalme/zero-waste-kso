@@ -1192,24 +1192,22 @@ def _truncate(text: str, max_len: int = 180) -> str:
     return s if len(s) <= max_len else s[: max_len - 1].rstrip() + "…"
 
 
-def summarize_maturity_gaps_with_openai(
+def summarize_maturity_gaps_to_df(
     gaps_df: pd.DataFrame,
     per_category_limit: int = 5,
     model_name: str = "gpt-4.1-mini",
-    max_tokens: int = 900,
-    style: str = "bullets",   # "bullets" | "narrative" | "exec_summary"
-) -> str:
+    max_tokens: int = 1200
+) -> pd.DataFrame:
     """
-    Summarize maturity gaps returned by identify_top_maturity_gaps(...).
-    Expects columns: Category, Heading, Context, Impact.
-
-    Returns a Markdown string suitable for Streamlit display or emailing.
+    Summarizes maturity gaps (from mat_gaps_df) into key themes per Category using OpenAI,
+    returning a structured DataFrame: Category | Theme | Summary.
     """
-    required = {"Category", "Heading", "Context", "Impact"}
-    if gaps_df is None or gaps_df.empty or not required.issubset(set(gaps_df.columns)):
-        return "No maturity gaps to summarize."
 
-    # Trim rows per category to keep the prompt compact & predictable
+    required_cols = {"Category", "Heading", "Context", "Impact"}
+    if gaps_df is None or gaps_df.empty or not required_cols.issubset(gaps_df.columns):
+        return pd.DataFrame(columns=["Category", "Theme", "Summary"])
+
+    # Trim for brevity
     trimmed = (
         gaps_df
         .copy()
@@ -1219,66 +1217,67 @@ def summarize_maturity_gaps_with_openai(
         .reset_index(drop=True)
     )
 
-    # Convert to a minimal, model-friendly structure
-    grouped: Dict[str, List[Dict[str, str]]] = {}
+    # Group data for the prompt
+    grouped = {}
     for cat, sub in trimmed.groupby("Category", dropna=False):
-        cat_name = "Uncategorized" if (cat is None or str(cat).strip() == "") else str(cat)
+        cat_name = "Uncategorized" if pd.isna(cat) or str(cat).strip() == "" else str(cat)
         grouped[cat_name] = [
             {
                 "heading": str(row["Heading"]).strip(),
                 "context": str(row["Context"]).strip(),
-                "impact":  str(row["Impact"]).strip(),
+                "impact": str(row["Impact"]).strip()
             }
             for _, row in sub.iterrows()
         ]
 
-    # You can switch styles to change the ask without changing data
-    style_instructions = {
-        "bullets": (
-            "Return a concise Markdown summary grouped by Category. "
-            "Under each Category, list 3–6 bullet points. "
-            "Each bullet should be: **Heading** — Context (≤20 words). _Impact: ... (≤20 words)_. "
-            "Avoid repetition; merge similar items. End with 3 cross-category priorities."
-        ),
-        "narrative": (
-            "Return a concise narrative per Category (≤120 words each), synthesizing the gaps into themes. "
-            "Finish with a cross-category paragraph on the biggest risks and the near-term focus."
-        ),
-        "exec_summary": (
-            "Return a one-page executive summary: 5–7 bullets total (not per Category). "
-            "Capture the most material risks across all Categories, ranked, each with a crisp business impact. "
-            "Close with a 30/60/90-day action outline."
-        )
-    }.get(style, "Return a concise Markdown summary grouped by Category with bullets per Category and a short cross-category wrap-up.")
-
     prompt = f"""
-You are a senior Adtech/Martech maturity consultant. Summarize the following category-tagged maturity gaps.
+You are an Adtech/Martech maturity consultant.
 
-{style_instructions}
+Summarize the following categorized marketing maturity gaps into clear themes.
 
-IMPORTANT:
-- Do not invent facts; only use the provided items.
-- Prefer synthesis over duplication; if multiple bullets overlap, merge them.
-- Keep the language plain and action-oriented.
-- Do not exceed ~500 words total unless needed.
+For each Category, analyze the provided list of gaps (each has a heading, context, and impact) 
+and summarize them into 2–4 **key themes** that capture the main issues or opportunities.
 
-GAPS (JSON):
+Return JSON ONLY in this exact format:
+[
+  {{
+    "Category": "<Category Name>",
+    "Theme": "<Short Theme Name>",
+    "Summary": "<2–3 sentence summary combining related gaps>"
+  }},
+  ...
+]
+
+Do not include any text before or after the JSON.
+
+GAPS DATA (JSON):
 {json.dumps(grouped, ensure_ascii=False, indent=2)}
-    """.strip()
+"""
 
     client = openai.OpenAI(api_key=st.secrets["OPEN_AI_KEY"])
-    resp = client.chat.completions.create(
+    response = client.chat.completions.create(
         model=model_name,
         messages=[
-            {"role": "system", "content": "You are a marketing maturity consultant who writes crisp, executive-ready summaries."},
-            {"role": "user", "content": prompt},
+            {"role": "system", "content": "You are a marketing maturity consultant summarizing audit gaps into concise structured insights."},
+            {"role": "user", "content": prompt}
         ],
         temperature=0.5,
         max_tokens=max_tokens,
     )
 
-    summary_md = resp.choices[0].message.content if resp and resp.choices else "No summary generated."
-    return summary_md
+    text = response.choices[0].message.content.strip()
+
+    # --- Parse JSON safely ---
+    try:
+        parsed = json.loads(text)
+        mat_gaps_summary_df = pd.DataFrame(parsed)
+    except json.JSONDecodeError:
+        # fallback: return one-row DF with raw text
+        mat_gaps_summary_df = pd.DataFrame(
+            [{"Category": "Parsing Error", "Theme": "N/A", "Summary": text}]
+        )
+
+    return mat_gaps_summary_df
 
 
 def matched_recs_to_df(results: Dict[str, Any]) -> pd.DataFrame:

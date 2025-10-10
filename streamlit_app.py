@@ -16,7 +16,7 @@ from recommendations import (
     identify_top_maturity_gaps,
     identify_top_maturity_drivers,
     matched_recs_to_df,
-    summarize_maturity_gaps_to_bullets,
+    summarize_maturity_gaps_to_df,
     summarize_recommendations_to_themes
 )
 
@@ -84,7 +84,7 @@ def main():
 
                     # Gaps → bullets
                     gaps_df = identify_top_maturity_gaps(df)
-                    gaps_md = summarize_maturity_gaps_to_bullets(gaps_df, per_category_limit=5)
+                    gaps_md = summarize_maturity_gaps_to_df(gaps_df, per_category_limit=5)
 
                     # Persist in session
                     st.session_state.exec_rec_results = rec_results
@@ -92,7 +92,7 @@ def main():
                     st.session_state.exec_themes_df = themes_df
                     st.session_state.exec_themes_md = themes_md
                     st.session_state.exec_gaps_df = gaps_df
-                    st.session_state.exec_gaps_md = summary_md
+                    st.session_state.exec_gaps_md = gaps_md
 
                     # High-level KPIs
                     st.session_state.exec_total_recs = rec_results.get('total_matched_recommendations', 0)
