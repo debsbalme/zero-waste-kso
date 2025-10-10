@@ -2,5 +2,4 @@ streamlit
 openai>=1.0.0
 pandas
 fpdf
-re
 typing
