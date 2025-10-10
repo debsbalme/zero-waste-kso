@@ -1,13 +1,12 @@
 import pandas as pd
 import json
-import math # For math.isnan to check for NaN values
+import math 
 import openai
 import streamlit as st
 import ast
-from fpdf import FPDF
-import re
-from typing import Dict, Iterable, List, Tuple, Optional, Any
 
+import re
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 # Define the Recommendation Set as provided in your agent's internal knowledge base
 RECOMMENDATION_SET = [
@@ -31,7 +30,7 @@ RECOMMENDATION_SET = [
         "answer": "Time-series forecasting to account for seasonality and key calendar events",
         "type": "negative_choice",
         "recommendation": "Data & AI Workshop (Seasonal & Event-Based Forecasting)",
-        "overview": "We recommend exploring seasonal and event-based forecasting using time-series models enhanced with anomaly detection. This approach helps anticipate fluctuations in demand, enabling more accurate planning around peak periods, holidays, and key commercial events. By aligning media and resource allocation with predicted performance shifts, your organization can reduce waste and maximize impact during critical windows."
+        "overview": "CWe recommend exploring seasonal and event-based forecasting using time-series models enhanced with anomaly detection. This approach helps anticipate fluctuations in demand, enabling more accurate planning around peak periods, holidays, and key commercial events. By aligning media and resource allocation with predicted performance shifts, your organization can reduce waste and maximize impact during critical windows."
     },
     {
         "question": "How does your organization currently identify and reduce spend on low-performing audience segments?",
@@ -353,7 +352,7 @@ RECOMMENDATION_SET = [
             }
         ],
         "recommendation": "Data & AI Workshop (Wasted Impressions Mitigation)",
-        "overview": "We recommend enhancing the use of AI-driven audience performance modeling to mitigate wasted impressions by leveraging additional data sources to train models that more precisely allocate spend toward high-value audiences. This approach enhances efficiency by reducing budget waste and improving overall campaign effectiveness."
+        "overview": "We recommend enhancing the the use of AI-driven audience performance modeling to mitigate wasted impressions by leveraging additional data sources tp train models that more precisely allocate spend toward high-value audiences. This approach enhances efficiency by reducing budget waste and improving overall campaign effectiveness."
     },
     {
         "set_id": "DataAI_LAL",
@@ -384,7 +383,7 @@ RECOMMENDATION_SET = [
                 "type": "negative_choice"
             }
         ],
-        "recommendation": "Data & AI Workshop (Dynamic Suppression Optimization)",
+        "recommendation": "Data & AI Workshop (Dynamic Suppression Optimization",
         "overview": "We recommend exploring dynamic suppression optimization to improve audience efficiency and reduce wasted impressions. By leveraging real-time data, such as recent ad exposure, engagement signals, or customer lifecycle stage, your organization can suppress users who are unlikely to convert or have recently re-engaged. This approach minimizes oversaturation, improves user experience, and reallocates budget toward higher-performing segments, ultimately driving stronger campaign performance."
     },
     {
@@ -655,7 +654,7 @@ def run_recommendation_analysis(df):
             current_group_contributing_scores = 0.0
             current_group_contributing_max_weights = 0.0
 
-            # --- Logic for 'match_answers_from_questions' (exact match across two questions) ---
+            # --- Logic for 'match_answers_from_questions' ---
             if 'match_answers_from_questions' in item and len(item['match_answers_from_questions']) == 2:
                 q1_key = item['match_answers_from_questions'][0].lower().strip()
                 q2_key = item['match_answers_from_questions'][1].lower().strip()
@@ -663,88 +662,74 @@ def run_recommendation_analysis(df):
                 q1_entry = csv_data_map.get(q1_key)
                 q2_entry = csv_data_map.get(q2_key)
 
+                # Check if both questions exist in the CSV data and their normalized answers are the same.
                 if q1_entry and q2_entry:
-                    q1_answers = [a for a in q1_entry['answers'] if a != ""]
-                    q2_answers = [a for a in q2_entry['answers'] if a != ""]
-                    # consider any overlap between the first answers (or any overlap at all)
-                    overlap = set(q1_answers).intersection(set(q2_answers))
-                    if overlap:
+                    q1_answers = q1_entry['answers']
+                    q2_answers = q2_entry['answers']
+
+                    if q1_answers and q2_answers and q1_answers[0] == q2_answers[0] and q1_answers[0] != "":
                         group_condition_met = True
                         current_group_contributing_scores = q1_entry.get('score', 0.0) + q2_entry.get('score', 0.0)
                         current_group_contributing_max_weights = q1_entry.get('maxweight', 0.0) + q2_entry.get('maxweight', 0.0)
 
+            # --- Logic for 'min_matches', 'or_group', and 'AND' ---
             else:
-                # --- Generalized grouped logic supporting flat and nested-or subblocks ---
-                group_questions = item.get('questions', [])
+                group_questions = item['questions']
                 contributing_matches = []
-
-                def _answers_match(user_answers: List[str], target_answers, neg: bool) -> bool:
-                    if not user_answers:
-                        return False
-                    if isinstance(target_answers, list):
-                        target = [normalize_answer_for_comparison(v) for v in target_answers]
-                        return all(ua not in target for ua in user_answers) if neg else any(ua in target for ua in user_answers)
-                    target = normalize_answer_for_comparison(target_answers)
-                    return all(ua != target for ua in user_answers) if neg else any(ua == target for ua in user_answers)
-
-                for sub in group_questions:
-                    # Case A: nested or_group block
-                    if 'or_group' in sub and isinstance(sub['or_group'], list):
-                        block_matched = False
-                        block_best_score = 0.0
-                        block_best_max = 0.0
-                        for leaf in sub['or_group']:
-                            if 'question' not in leaf or 'answer' not in leaf:
-                                continue
-                            q_key = str(leaf['question']).lower().strip()
-                            ans_spec = leaf['answer']
-                            neg = (leaf.get('type') == 'negative_choice')
-
-                            csv_entry = csv_data_map.get(q_key)
-                            user_ans = csv_entry['answers'] if csv_entry else []
-
-                            if _answers_match(user_ans, ans_spec, neg):
-                                block_matched = True
-                                # choose the max contributing weight inside this or-block
-                                s = float(csv_entry.get('score', 0.0) if csv_entry else 0.0)
-                                m = float(csv_entry.get('maxweight', 0.0) if csv_entry else 0.0)
-                                block_best_score = max(block_best_score, s)
-                                block_best_max = max(block_best_max, m)
-
-                        if block_matched:
-                            contributing_matches.append({'score': block_best_score, 'maxweight': block_best_max})
-
-                    # Case B: flat sub-question
-                    elif 'question' in sub and 'answer' in sub:
-                        q_key = str(sub['question']).lower().strip()
-                        ans_spec = sub['answer']
-                        neg = (sub.get('type') == 'negative_choice')
-
-                        csv_entry = csv_data_map.get(q_key)
-                        user_ans = csv_entry['answers'] if csv_entry else []
-
-                        if _answers_match(user_ans, ans_spec, neg) and csv_entry:
-                            contributing_matches.append({
-                                'score': float(csv_entry.get('score', 0.0)),
-                                'maxweight': float(csv_entry.get('maxweight', 0.0)),
-                            })
-                    else:
-                        # Skip malformed sub-specs
+                for sub_q_item in group_questions:
+                    # Check if 'question' and 'answer' keys exist in the sub-question item
+                    if 'question' not in sub_q_item or 'answer' not in sub_q_item:
+                        print(f"Skipping sub-question item due to missing 'question' or 'answer' key: {sub_q_item}")
                         continue
 
-                # Top-level thresholds: prefer explicit min_matches; else default to "all"
+                    sub_q_question = sub_q_item['question'].lower().strip()
+                    sub_q_answer_raw = sub_q_item['answer']
+                    sub_q_type = sub_q_item.get('type')
+
+                    csv_sub_q_entry = csv_data_map.get(sub_q_question)
+                    user_answers_from_csv_sub_q = csv_sub_q_entry['answers'] if csv_sub_q_entry else [] # Get list of answers
+
+                    current_sub_q_condition_met = False
+
+                    if user_answers_from_csv_sub_q: # Check if there are answers from CSV for sub-question
+                        normalized_sub_q_answers = []
+                        if isinstance(sub_q_answer_raw, list):
+                            normalized_sub_q_answers = [normalize_answer_for_comparison(val) for val in sub_q_answer_raw]
+                        else:
+                            normalized_sub_q_answers = [normalize_answer_for_comparison(sub_q_answer_raw)]
+
+                        if sub_q_type == "negative_choice":
+                             # For negative_choice, the condition is met if NONE of the user's answers are in the specified list
+                            current_sub_q_condition_met = all(user_ans not in normalized_sub_q_answers for user_ans in user_answers_from_csv_sub_q)
+                        else:
+                            # For positive choice (default), the condition is met if ANY of the user's answers are in the specified list
+                            current_sub_q_condition_met = any(user_ans in normalized_sub_q_answers for user_ans in user_answers_from_csv_sub_q)
+
+                    # If the sub-question condition IS met, add its score and maxweight
+                    if current_sub_q_condition_met and csv_sub_q_entry:
+                        contributing_matches.append({
+                            'score': csv_sub_q_entry.get('score', 0.0),
+                            'maxweight': csv_sub_q_entry.get('maxweight', 0.0)
+                        })
+
                 min_matches_required = item.get('min_matches')
-                if isinstance(min_matches_required, int):
+                is_or_group = item.get('or_group')
+
+                if min_matches_required is not None:
+                    # Check if the number of contributing matches meets the minimum
                     group_condition_met = len(contributing_matches) >= min_matches_required
+                elif is_or_group:
+                    # Check if at least one sub-question matched
+                    group_condition_met = len(contributing_matches) > 0
                 else:
-                    # If the author intended OR across blocks, they should wrap in 'or_group' at the block level.
-                    # Here we retain AND semantics across blocks by default.
-                    group_condition_met = (len(contributing_matches) == len([s for s in group_questions if isinstance(s, dict)]))
+                    # Default to the original 'AND' logic: all sub-questions must match
+                    group_condition_met = len(contributing_matches) == len(group_questions)
 
                 if group_condition_met:
                     current_group_contributing_scores = sum(m['score'] for m in contributing_matches)
                     current_group_contributing_max_weights = sum(m['maxweight'] for m in contributing_matches)
 
+            # If the group's overall condition is met, add the group recommendation
             if group_condition_met:
                 matched_recommendations_with_scores.append({
                     'recommendation': group_recommendation,
