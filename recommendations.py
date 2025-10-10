@@ -8,6 +8,7 @@ from fpdf import FPDF
 import re
 from typing import Dict, Iterable, List, Tuple, Optional
 
+
 # Define the Recommendation Set as provided in your agent's internal knowledge base
 RECOMMENDATION_SET = [
     {
