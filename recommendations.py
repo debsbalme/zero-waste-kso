@@ -1374,18 +1374,29 @@ GAPS DATA (JSON):
         max_tokens=max_tokens,
     )
 
-    text = response.choices[0].message.content.strip()
+    sum_text = response.choices[0].message.content.strip()
 
     # --- Parse JSON safely ---
-    try:
-        parsed = json.loads(text)
-        mat_gaps_summary_df = pd.DataFrame(parsed)
-    except json.JSONDecodeError:
-        # fallback: return one-row DF with raw text
-        mat_gaps_summary_df = pd.DataFrame(
-            [{"Category": "Parsing Error", "Theme": "N/A", "Summary": text}]
-        )
+    gaps_summ = []
+    gaps_summ = re.split(r'\d+\.\s*\*\*Heading\*\*\:', sum_text)
 
+    for entry in gaps_summ[1:]:
+        cat_match = re.search(r'(.*?)\s*\*\*\s*Category\*\*\:', entry, re.DOTALL)
+        theme_match = re.search(r'\*\*\s*Theme\*\*\:', entry, re.DOTALL)
+        summary_match = re.search(r'\*\*\s*Summary\*\*\:\s*(.*)', entry, re.DOTALL)
+
+        category = cat_match.group(1).strip() if cat_match else "N/A"
+        themes = theme_match.group(1).strip() if theme_match else "N/A"
+        summary = summary_match.group(1).strip() if summary_match else "N/A"
+
+        gaps_summ.append({
+            "Heading": category,
+            "Context": themes,
+            "Impact": summary
+        })
+
+    # Create a pandas DataFrame
+    mat_gaps_summary_df = pd.DataFrame(gaps_summ)
     return mat_gaps_summary_df
 
 
