@@ -821,6 +821,7 @@ You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity 
 Focus ONLY on the Category: "{cat}".
 
 From the questions, answers, and (if provided) comments below, identify the most critical **marketing maturity gaps** for this category.
+A "maturity gap" is a disconnect between the current state and a more advanced, effective stage of marketing capability.
 
 Anchor your thinking to these three pillars:
 1) Identify & Eliminate Inefficiencies — overlaps, gaps, and underutilized capabilities across platforms, data, and tech; streamline architecture; reduce wasted investment.
@@ -828,9 +829,10 @@ Anchor your thinking to these three pillars:
 3) Develop a Sustainable Growth Roadmap — translate insights into a prioritized, achievable plan with resourcing, so gains are implemented and sustained.
 
 For each gap, return:
-- **Heading**: concise title (e.g., "Lack of First-Party Data Activation")
-- A brief 25 words or less **Context** (what the maturity gap is and why it matters)
-- A clear 25 words or less **Impact** (hThe impact that gap has or will have on the platforms architecture or data quality or audience strategy or technology use or marketing strategy or overall business objectives)
+Each maturity gap should include:
+- A concise **Heading** (e.g., "Lack of First-Party Data Activation")
+- A brief 25 words or less **Context** (what the maturity driver is and why it matters)
+- A clear 25 words or less **Impact** (how this gap is affecting the advertiser's performance or strategic outcomes)
 
 Output strictly as a numbered list:
 1. **Heading**: ...
@@ -1014,11 +1016,12 @@ You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity.
 Focus ONLY on the Category: "{cat}".
 
 From the questions, answers, and (if provided) comments below, identify the most critical **marketing maturity drivers** for this category.
+A "maturity driver" is something that the business is currently doing well that accounts for their current level of marketing maturity, focused on their Google Marketing Platform usage.
 
-For each driver, return:
-- **Heading**: concise title (e.g., "First-Party Data Activation")
-- **Context** (≤25 words): what the driver is and why it matters
-- **Impact** (≤25 words): how this driver improves platform architecture, data quality, audience strategy, tech use, marketing strategy, or business outcomes
+Each maturity driver should include:
+- A concise **Heading** (e.g., "Integration of First-Party Data")
+- A brief 25 words or less **Context** (what the maturity driver is and why it matters)
+- A clear 25 words or less **Impact** (how this driver improves the advertiser's maturity or strategic outcomes)
 
 Output strictly as a numbered list:
 1. **Heading**: ...
