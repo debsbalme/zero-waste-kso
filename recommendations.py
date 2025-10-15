@@ -820,7 +820,7 @@ You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity 
 
 Focus ONLY on the Category: "{cat}".
 
-From the questions, answers, and (if provided) comments below, identify the most critical **marketing maturity gaps** for this category.
+Reviewing the questions and answers, and (if provided) comments below, identify the most critical **marketing maturity gaps** for this category.
 A "maturity gap" is a disconnect between the current state and a more advanced, effective stage of marketing capability.
 
 Anchor your thinking to these three pillars:
@@ -1015,7 +1015,7 @@ You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity.
 
 Focus ONLY on the Category: "{cat}".
 
-From the questions, answers, and (if provided) comments below, identify the most critical **marketing maturity drivers** for this category.
+Reviewing the questions and answers, and (if provided) comments below, identify the most critical **marketing maturity drivers** for this category.
 A "maturity driver" is something that the business is currently doing well that accounts for their current level of marketing maturity, focused on their Google Marketing Platform usage.
 
 Each maturity driver should include:
