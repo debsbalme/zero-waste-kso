@@ -895,55 +895,105 @@ Comments: {comments}
 
     # Drop empty rows if any
     if not mat_gaps_df.empty:
-        mat_gaps_df = mat_gaps_df[
-            ~(
-                mat_gaps_df[["Heading", "Context", "Impact"]]
-                .replace("N/A", "")
-                .apply(lambda r: all(x.strip() == "" for x in r), axis=1)
-            )
-        ].reset_index(drop=True)
-
+        mask_empty = mat_gaps_df[["Heading", "Context", "Impact"]].apply(
+            lambda r: all((str(x).strip() in {"", "N/A"}) for x in r), axis=1
+        )
+        mat_gaps_df = mat_gaps_df[~mask_empty].reset_index(drop=True)
     return mat_gaps_df
+
+
  
+def _parse_drivers_from_text(category: str, text: str) -> List[dict]:
+    """
+    Robustly parse numbered blocks like:
+      1. **Heading**: ...
+         **Context**: ...
+         **Impact**: ...
+    Accepts missing **, extra spaces, or line-break variation.
+    """
+    if not text:
+        return []
 
+    s = _strip_code_fences(text).strip()
 
-def identify_top_maturity_drivers(df, model_name: str = "gpt-4.1-mini", max_tokens: int = 1200) -> pd.DataFrame:
+    # 1) Split into item blocks by numbered prefix "1.", "2.", ...
+    #    We capture the entire block up to next number or end of string.
+    item_pattern = re.compile(
+        r'^\s*(\d+)\.\s*(.*?)(?=^\s*\d+\.|\Z)',  # block per numbered item
+        flags=re.DOTALL | re.MULTILINE
+    )
+
+    # 2) Inside each block, extract Heading/Context/Impact with tolerant labels
+    #    - allow optional **, any spaces, case-insensitive, punctuation
+    label = r'(?:\*\*)?'           # optional starting **
+    sep = r'[:：]\s*'              # colon variants + spaces
+    heading_pat = re.compile(rf'{label}Heading(?:\*\*)?\s*{sep}(.*)', re.IGNORECASE | re.DOTALL)
+    context_pat = re.compile(rf'{label}Context(?:\*\*)?\s*{sep}(.*)', re.IGNORECASE | re.DOTALL)
+    impact_pat  = re.compile(rf'{label}Impact(?:\*\*)?\s*{sep}(.*)',  re.IGNORECASE | re.DOTALL)
+
+    # Helper to slice a block into fields by looking ahead to the next label
+    def extract_field(block: str, start_pat: re.Pattern, next_pats: List[re.Pattern]) -> str:
+        m = start_pat.search(block)
+        if not m:
+            return ""
+        start = m.end()
+        # find the earliest next label after start to delimit this field
+        next_indices = []
+        for p in next_pats:
+            n = p.search(block, pos=start)
+            if n:
+                next_indices.append(n.start())
+        end = min(next_indices) if next_indices else len(block)
+        return block[start:end].strip()
+
+    rows = []
+    for _m in item_pattern.finditer(s):
+        block = _m.group(2).strip()
+
+        # Normalize line breaks to make parsing less finicky
+        block_norm = re.sub(r'\r\n?', '\n', block)
+
+        heading = extract_field(block_norm, heading_pat, [context_pat, impact_pat])
+        context = extract_field(block_norm, context_pat, [impact_pat])
+        impact  = extract_field(block_norm, impact_pat, [])
+
+        # Fallbacks: if no labeled heading, take first non-empty line as heading
+        if not heading:
+            first_line = next((ln.strip() for ln in block_norm.splitlines() if ln.strip()), "")
+            heading = first_line
+
+        rows.append({
+            "Category": category,
+            "Heading": heading or "N/A",
+            "Context": context or "N/A",
+            "Impact":  impact  or "N/A",
+        })
+
+    return rows
+
+def identify_top_maturity_drivers(
+    df: pd.DataFrame,
+    model_name: str = "gpt-4.1-mini",
+    max_tokens: int = 1200
+) -> pd.DataFrame:
     """
     Generate maturity Drivers PER CATEGORY using the 'Category' column.
     Returns a DataFrame with columns: Category, Heading, Context, Impact.
-
-    Notes:
-      - Loops each category separately to keep outputs well-scoped.
-      - Robust parsing for numbered gaps in the format:
-          1. **Heading**: ...
-             **Context**: ...
-             **Impact**: ...
-      - Skips empty/missing categories gracefully.
     """
     if df is None or df.empty:
         return pd.DataFrame(columns=["Category", "Heading", "Context", "Impact"])
 
-    # Ensure required columns exist
     for col in ["Category", "Question", "Answer"]:
         if col not in df.columns:
             raise ValueError(f"Missing required column: '{col}'")
 
-    # Safe comments field
     has_comments = "Comment" in df.columns
+    all_rows: List[dict] = []
 
-    all_rows = []
-
-    # Iterate categories (string-cast to avoid nan weirdness)
     categories = (
-        df["Category"]
-        .apply(lambda x: "" if pd.isna(x) else str(x))
-        .unique()
-        .tolist()
+        df["Category"].apply(lambda x: "" if pd.isna(x) else str(x)).unique().tolist()
     )
-
-    # Remove empty category labels if any
     categories = [c for c in categories if c.strip() != ""]
-
     if not categories:
         return pd.DataFrame(columns=["Category", "Heading", "Context", "Impact"])
 
@@ -959,21 +1009,16 @@ def identify_top_maturity_drivers(df, model_name: str = "gpt-4.1-mini", max_toke
         comments = sub["Comment"].fillna("").astype(str).tolist() if has_comments else []
 
         prompt = f"""
-You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity based on their audit responses.
+You are a strategic Adtech/Martech advisor assessing an advertiser’s maturity.
 
 Focus ONLY on the Category: "{cat}".
 
 From the questions, answers, and (if provided) comments below, identify the most critical **marketing maturity drivers** for this category.
 
-Anchor your thinking to these three pillars:
-1) Identify & Eliminate Inefficiencies — overlaps, gaps, and underutilized capabilities across platforms, data, and tech; streamline architecture; reduce wasted investment.
-2) Accelerate Innovation & Maturity — expose gaps blocking growth; introduce new tools, approaches, or AI-led solutions to keep pace with market shifts.
-3) Develop a Sustainable Growth Roadmap — translate insights into a prioritized, achievable plan with resourcing, so gains are implemented and sustained.
-
-For each gap, return:
-- **Heading**: concise title (e.g., "Use First-Party Data Activation")
-- A brief 25 words or less **Context** (what the maturity driver is and why it matters)
-- A clear 25 words or less **Impact** (The impact that driver has or will have on the platforms architecture or data quality or audience strategy or technology use or marketing strategy or overall business objectives)
+For each driver, return:
+- **Heading**: concise title (e.g., "First-Party Data Activation")
+- **Context** (≤25 words): what the driver is and why it matters
+- **Impact** (≤25 words): how this driver improves platform architecture, data quality, audience strategy, tech use, marketing strategy, or business outcomes
 
 Output strictly as a numbered list:
 1. **Heading**: ...
@@ -988,7 +1033,7 @@ Comments: {comments}
         resp = client.chat.completions.create(
             model=model_name,
             messages=[
-                {"role": "system", "content": "You are a marketing maturity consultant focused on identifying key capability gaps from audits."},
+                {"role": "system", "content": "You are a marketing maturity consultant identifying key capability drivers from audits."},
                 {"role": "user", "content": prompt},
             ],
             max_tokens=max_tokens,
@@ -996,57 +1041,17 @@ Comments: {comments}
         )
 
         text = resp.choices[0].message.content if resp and resp.choices else ""
-
-        # --- Parse the maturity gaps text into rows for this category ---
-        drivers = []
-        # split on "1. **Heading**:" / "2. **Heading**:" etc
-        parts = re.split(r'\n?\s*\d+\.\s*\*\*Heading\*\*\s*:\s*', text)
-        # First split element is preamble; skip it
-        for chunk in parts[1:]:
-            # heading is the text up to **Context**:
-            heading_match = re.match(r'(.*?)\s*\*\*\s*Context\*\*\s*:\s*(.*)', chunk, re.DOTALL)
-            if heading_match:
-                heading_text = heading_match.group(1).strip()
-                rest = heading_match.group(2)
-            else:
-                # fallback: try to parse up to a newline
-                first_line = chunk.strip().splitlines()[0] if chunk.strip() else "N/A"
-                heading_text = first_line.strip()
-                rest = chunk[len(first_line):]
-
-            context_match = re.search(r'\*\*\s*Context\*\*\s*:\s*(.*?)\s*\*\*\s*Impact\*\*\s*:\s*(.*)', rest, re.DOTALL)
-            if context_match:
-                context_text = context_match.group(1).strip()
-                impact_text = context_match.group(2).strip()
-            else:
-                # Fallback: try to grab lines labeled Context/Impact even if formatting drifts
-                context_alt = re.search(r'Context\s*:\s*(.*)', rest)
-                impact_alt = re.search(r'Impact\s*:\s*(.*)', rest)
-                context_text = context_alt.group(1).strip() if context_alt else "N/A"
-                impact_text = impact_alt.group(1).strip() if impact_alt else "N/A"
-
-            drivers.append({
-                "Category": cat,
-                "Heading": heading_text or "N/A",
-                "Context": context_text or "N/A",
-                "Impact": impact_text or "N/A",
-            })
-
-        all_rows.extend(drivers)
+        parsed_rows = _parse_drivers_from_text(cat, text)
+        all_rows.extend(parsed_rows)
 
     mat_drivers_df = pd.DataFrame(all_rows, columns=["Category", "Heading", "Context", "Impact"])
 
-    # Drop empty rows if any
+    # Remove rows where all fields are effectively empty/N/A
     if not mat_drivers_df.empty:
-        mat_drivers_df = mat_drivers_df[
-            ~(
-                mat_drivers_df[["Heading", "Context", "Impact"]]
-                .replace("N/A", "")
-                .apply(lambda r: all(x.strip() == "" for x in r), axis=1)
-            )
-        ].reset_index(drop=True)
-
-    mat_drivers_df= pd.DataFrame(drivers)
+        mask_empty = mat_drivers_df[["Heading", "Context", "Impact"]].apply(
+            lambda r: all((str(x).strip() in {"", "N/A"}) for x in r), axis=1
+        )
+        mat_drivers_df = mat_drivers_df[~mask_empty].reset_index(drop=True)
 
     return mat_drivers_df
 
