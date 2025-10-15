@@ -1,7 +1,6 @@
 import pandas as pd
 import json
 import math 
-import openai
 import streamlit as st
 import ast
 
@@ -1270,6 +1269,24 @@ def summarize_recommendations_to_themes(
     return agg[["Theme", "Count", "Examples"]].reset_index(drop=True), summary_md
 
 
+def _coerce_json_array(text: str) -> str:
+    s = text.strip()
+    if s.startswith('[') and s.endswith(']'):
+        return s
+    m = re.search(r"\[.*\]", s, re.DOTALL)
+    return m.group(0) if m else s
+
+
+
+def _parse_json_array_from_text(raw: str) -> List[dict]:
+    candidate = _strip_code_fences(raw)
+    candidate = _coerce_json_array(candidate)
+    candidate = _light_json_sanitize(candidate)
+    data = json.loads(candidate)
+    if not isinstance(data, list):
+        raise ValueError("Parsed JSON is not a list.")
+    return data
+
 
 def _truncate(text: str, max_len: int = 180) -> str:
     if text is None:
@@ -1305,15 +1322,10 @@ def _coerce_json_array(text: str) -> str:
     return s
 
 def _light_json_sanitize(text: str) -> str:
-    """
-    Light fixes for common model JSON issues:
-    - smart quotes -> straight quotes
-    - trailing commas before ] or }
-    - UTF-8 NBSP trimming
-    """
-    s = text.replace("\u201c", "\"").replace("\u201d", "\"").replace("\u2019", "'")
-    s = s.replace("\xa0", " ")  # non-breaking space
-    # Remove trailing commas before list/object close
+    s = (text.replace("\u201c", "\"")
+             .replace("\u201d", "\"")
+             .replace("\u2019", "'")
+             .replace("\xa0", " "))
     s = re.sub(r",\s*([}\]])", r"\1", s)
     return s
 
@@ -1523,48 +1535,10 @@ def alignment_df_to_markdown(align_df: pd.DataFrame) -> str:
                 lines.append(f"- **{label}**{conf_str}\n  - *How it addresses:* {how}\n  - *Rationale:* {rat}")
     return "\n".join(lines)
 
-import re
-import json
-import pandas as pd
-from typing import Dict, Any, List, Optional
-import openai
-import streamlit as st
+
 
 # ---------- Helpers ----------
 
-def _truncate_text(s: str, max_chars: int = 500) -> str:
-    if s is None:
-        return ""
-    s = str(s).strip()
-    return s if len(s) <= max_chars else s[: max_chars - 1].rstrip() + "…"
-
-def _strip_code_fences(text: str) -> str:
-    m = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
-    return m.group(1) if m else text
-
-def _coerce_json_array(text: str) -> str:
-    s = text.strip()
-    if s.startswith('[') and s.endswith(']'):
-        return s
-    m = re.search(r"\[.*\]", s, re.DOTALL)
-    return m.group(0) if m else s
-
-def _light_json_sanitize(text: str) -> str:
-    s = (text.replace("\u201c", "\"")
-             .replace("\u201d", "\"")
-             .replace("\u2019", "'")
-             .replace("\xa0", " "))
-    s = re.sub(r",\s*([}\]])", r"\1", s)
-    return s
-
-def _parse_json_array_from_text(raw: str) -> List[dict]:
-    candidate = _strip_code_fences(raw)
-    candidate = _coerce_json_array(candidate)
-    candidate = _light_json_sanitize(candidate)
-    data = json.loads(candidate)
-    if not isinstance(data, list):
-        raise ValueError("Parsed JSON is not a list.")
-    return data
 
 
 # ---------- Main Alignment Function ----------
