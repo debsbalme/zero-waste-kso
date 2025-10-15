@@ -542,56 +542,32 @@ def normalize_answer_for_comparison(answer_value):
 
 
 
-
 def run_recommendation_analysis(df):
     """
     Executes the AI Agent's logic to process DataFrame data, match recommendations,
-    and calculate total scores and max weights.
-    Returns a dictionary containing matched recommendations and summary totals.
+    and return only the matched recommendations (no scores or totals).
     """
     csv_data_map = {}
     for index, row in df.iterrows():
         question_key = str(row['Question']).lower().strip()
         answer_value = normalize_answer_for_comparison(row['Answer'])
 
-        score = row['Score'] if pd.notna(row['Score']) else 0.0
-        max_weight = row['MaxWeight'] if pd.notna(row['MaxWeight']) else 0.0
-
-        score = max(0.0, float(score))
-        max_weight = max(0.0, float(max_weight))
-
-        # Handle multiple answers from CSV for the same question by storing them as a list
+        # Handle multiple answers per question
         if question_key not in csv_data_map:
-            csv_data_map[question_key] = {
-                'answers': [answer_value],
-                'score': score,
-                'maxweight': max_weight
-            }
+            csv_data_map[question_key] = {'answers': [answer_value]}
         else:
             csv_data_map[question_key]['answers'].append(answer_value)
 
+    matched_recommendations = []
 
-    matched_recommendations_with_scores = []
-    total_matched_recommendations = 0
-    total_score = 0.0
-    total_max_score = 0.0
-
-    # NOTE: The RECOMMENDATION_SET is assumed to be a global or imported list
-    # of dictionaries defining the recommendation logic.
     if 'RECOMMENDATION_SET' not in globals():
         print("Error: RECOMMENDATION_SET is not defined.")
-        return {
-            'matched_recommendations': [],
-            'total_matched_recommendations': 0,
-            'total_score': 0.0,
-            'total_max_score': 0.0
-        }
+        return {'matched_recommendations': []}
 
     for item in RECOMMENDATION_SET:
         if "set_id" not in item:
-            # A. Single Question Recommendation
+            # --- Single Question Recommendation ---
             if 'question' not in item or 'answer' not in item:
-                print(f"Skipping recommendation item due to missing 'question' or 'answer' key: {item}")
                 continue
 
             rec_question = item['question'].lower().strip()
@@ -603,153 +579,106 @@ def run_recommendation_analysis(df):
             rec_type = item.get('type')
 
             csv_entry = csv_data_map.get(rec_question)
-            user_answers_from_csv = csv_entry['answers'] if csv_entry else [] # Get list of answers
-
+            user_answers = csv_entry['answers'] if csv_entry else []
             current_condition_met = False
-            question_score_to_add = 0.0
-            question_max_weight_to_add = 0.0
 
-            if user_answers_from_csv: # Check if there are answers from CSV
-                normalized_rec_answers = []
-                if isinstance(rec_answer_raw, list):
-                    normalized_rec_answers = [normalize_answer_for_comparison(val) for val in rec_answer_raw]
-                else:
-                    normalized_rec_answers = [normalize_answer_for_comparison(rec_answer_raw)]
+            if user_answers:
+                normalized_rec_answers = (
+                    [normalize_answer_for_comparison(a) for a in rec_answer_raw]
+                    if isinstance(rec_answer_raw, list)
+                    else [normalize_answer_for_comparison(rec_answer_raw)]
+                )
 
                 if rec_type == "negative_choice":
-                    # For negative_choice, the condition is met if NONE of the user's answers are in the specified list
-                    current_condition_met = all(user_ans not in normalized_rec_answers for user_ans in user_answers_from_csv)
+                    current_condition_met = all(
+                        ans not in normalized_rec_answers for ans in user_answers
+                    )
                 else:
-                    # For positive choice (default), the condition is met if ANY of the user's answers are in the specified list
-                    current_condition_met = any(user_ans in normalized_rec_answers for user_ans in user_answers_from_csv)
-
-
-                if current_condition_met and csv_entry: # Also check if csv_entry exists before accessing score/maxweight
-                    # If the condition is met, use the score and maxweight from the CSV row corresponding to this question.
-                    question_score_to_add = csv_entry.get('score', 0.0)
-                    question_max_weight_to_add = csv_entry.get('maxweight', 0.0)
-
+                    current_condition_met = any(
+                        ans in normalized_rec_answers for ans in user_answers
+                    )
 
             if current_condition_met:
-                matched_recommendations_with_scores.append({
+                matched_recommendations.append({
                     'recommendation': rec_recommendation,
                     'overview': rec_overview,
                     'gmp_impact': rec_gmp_impact,
-                    'business_impact': rec_business_impact,
-                    'score': question_score_to_add,
-                    'maxweight': question_max_weight_to_add
+                    'business_impact': rec_business_impact
                 })
-                total_matched_recommendations += 1
-                total_score += question_score_to_add
-                total_max_score += question_max_weight_to_add
 
         else:
-            # B. Grouped Questions Recommendation
+            # --- Grouped Question Recommendation ---
             group_recommendation = item['recommendation']
             rec_overview = item.get('overview', 'N/A')
             rec_gmp_impact = item.get('gmpimpact', 'N/A')
             rec_business_impact = item.get('businessimpact', 'N/A')
 
             group_condition_met = False
-            current_group_contributing_scores = 0.0
-            current_group_contributing_max_weights = 0.0
 
-            # --- Logic for 'match_answers_from_questions' ---
+            # Match based on grouped logic
             if 'match_answers_from_questions' in item and len(item['match_answers_from_questions']) == 2:
                 q1_key = item['match_answers_from_questions'][0].lower().strip()
                 q2_key = item['match_answers_from_questions'][1].lower().strip()
-
                 q1_entry = csv_data_map.get(q1_key)
                 q2_entry = csv_data_map.get(q2_key)
 
-                # Check if both questions exist in the CSV data and their normalized answers are the same.
                 if q1_entry and q2_entry:
                     q1_answers = q1_entry['answers']
                     q2_answers = q2_entry['answers']
-
                     if q1_answers and q2_answers and q1_answers[0] == q2_answers[0] and q1_answers[0] != "":
                         group_condition_met = True
-                        current_group_contributing_scores = q1_entry.get('score', 0.0) + q2_entry.get('score', 0.0)
-                        current_group_contributing_max_weights = q1_entry.get('maxweight', 0.0) + q2_entry.get('maxweight', 0.0)
-
-            # --- Logic for 'min_matches', 'or_group', and 'AND' ---
             else:
-                group_questions = item['questions']
-                contributing_matches = []
-                for sub_q_item in group_questions:
-                    # Check if 'question' and 'answer' keys exist in the sub-question item
-                    if 'question' not in sub_q_item or 'answer' not in sub_q_item:
-                        print(f"Skipping sub-question item due to missing 'question' or 'answer' key: {sub_q_item}")
+                group_questions = item.get('questions', [])
+                matches = []
+                for sub_q in group_questions:
+                    if 'question' not in sub_q or 'answer' not in sub_q:
                         continue
+                    sub_q_key = sub_q['question'].lower().strip()
+                    sub_q_answer_raw = sub_q['answer']
+                    sub_q_type = sub_q.get('type')
+                    csv_sub_q_entry = csv_data_map.get(sub_q_key)
+                    user_answers = csv_sub_q_entry['answers'] if csv_sub_q_entry else []
+                    current_sub_match = False
 
-                    sub_q_question = sub_q_item['question'].lower().strip()
-                    sub_q_answer_raw = sub_q_item['answer']
-                    sub_q_type = sub_q_item.get('type')
-
-                    csv_sub_q_entry = csv_data_map.get(sub_q_question)
-                    user_answers_from_csv_sub_q = csv_sub_q_entry['answers'] if csv_sub_q_entry else [] # Get list of answers
-
-                    current_sub_q_condition_met = False
-
-                    if user_answers_from_csv_sub_q: # Check if there are answers from CSV for sub-question
-                        normalized_sub_q_answers = []
-                        if isinstance(sub_q_answer_raw, list):
-                            normalized_sub_q_answers = [normalize_answer_for_comparison(val) for val in sub_q_answer_raw]
-                        else:
-                            normalized_sub_q_answers = [normalize_answer_for_comparison(sub_q_answer_raw)]
+                    if user_answers:
+                        normalized_sub_q_answers = (
+                            [normalize_answer_for_comparison(a) for a in sub_q_answer_raw]
+                            if isinstance(sub_q_answer_raw, list)
+                            else [normalize_answer_for_comparison(sub_q_answer_raw)]
+                        )
 
                         if sub_q_type == "negative_choice":
-                             # For negative_choice, the condition is met if NONE of the user's answers are in the specified list
-                            current_sub_q_condition_met = all(user_ans not in normalized_sub_q_answers for user_ans in user_answers_from_csv_sub_q)
+                            current_sub_match = all(
+                                ans not in normalized_sub_q_answers for ans in user_answers
+                            )
                         else:
-                            # For positive choice (default), the condition is met if ANY of the user's answers are in the specified list
-                            current_sub_q_condition_met = any(user_ans in normalized_sub_q_answers for user_ans in user_answers_from_csv_sub_q)
+                            current_sub_match = any(
+                                ans in normalized_sub_q_answers for ans in user_answers
+                            )
 
-                    # If the sub-question condition IS met, add its score and maxweight
-                    if current_sub_q_condition_met and csv_sub_q_entry:
-                        contributing_matches.append({
-                            'score': csv_sub_q_entry.get('score', 0.0),
-                            'maxweight': csv_sub_q_entry.get('maxweight', 0.0)
-                        })
+                    if current_sub_match:
+                        matches.append(True)
 
                 min_matches_required = item.get('min_matches')
                 is_or_group = item.get('or_group')
 
                 if min_matches_required is not None:
-                    # Check if the number of contributing matches meets the minimum
-                    group_condition_met = len(contributing_matches) >= min_matches_required
+                    group_condition_met = len(matches) >= min_matches_required
                 elif is_or_group:
-                    # Check if at least one sub-question matched
-                    group_condition_met = len(contributing_matches) > 0
+                    group_condition_met = len(matches) > 0
                 else:
-                    # Default to the original 'AND' logic: all sub-questions must match
-                    group_condition_met = len(contributing_matches) == len(group_questions)
+                    group_condition_met = len(matches) == len(group_questions)
 
-                if group_condition_met:
-                    current_group_contributing_scores = sum(m['score'] for m in contributing_matches)
-                    current_group_contributing_max_weights = sum(m['maxweight'] for m in contributing_matches)
-
-            # If the group's overall condition is met, add the group recommendation
             if group_condition_met:
-                matched_recommendations_with_scores.append({
+                matched_recommendations.append({
                     'recommendation': group_recommendation,
                     'overview': rec_overview,
                     'gmp_impact': rec_gmp_impact,
-                    'business_impact': rec_business_impact,
-                    'score': current_group_contributing_scores,
-                    'maxweight': current_group_contributing_max_weights
+                    'business_impact': rec_business_impact
                 })
-                total_matched_recommendations += 1
-                total_score += current_group_contributing_scores
-                total_max_score += current_group_contributing_max_weights
 
+    return {'matched_recommendations': matched_recommendations}
 
-    return {
-        'matched_recommendations': matched_recommendations_with_scores,
-        'total_matched_recommendations': total_matched_recommendations,
-        'total_score': total_score,
-        'total_max_score': total_max_score
-    }
 
 
 # (Keep your RECOMMENDATION_SET and normalize_answer_for_comparison function here)
@@ -1081,83 +1010,76 @@ def process_and_summarize_recommendations(
     top_k: int = 6,
     include_examples: bool = True,
     example_limit: int = 3,
-    openai_api_key: str = "YOUR_API_KEY" # Replace with your actual key or use secrets management
+    openai_api_key: str = "YOUR_API_KEY"
 ) -> Tuple[pd.DataFrame, Dict[str, str]]:
     """
     Groups recommendations by theme, gets summaries from ChatGPT, and returns
     the themes DataFrame and a dictionary of theme summaries.
-
-    Args:
-        recommendations_df: DataFrame containing recommendations.
-        theme_map: Dictionary mapping theme names to keywords.
-        top_k: Number of top themes to include.
-        include_examples: Whether to include examples in the themes DataFrame.
-        example_limit: Maximum number of examples per theme.
-        openai_api_key: Your OpenAI API key.
-
-    Returns:
-        A tuple containing:
-            - themes_df: DataFrame with theme summaries (Theme, Count, Examples).
-            - theme_summaries: Dictionary with theme names as keys and ChatGPT summaries as values.
     """
-    # Ensure the necessary helper functions are defined (assuming they are in the environment)
-    if '_normalize_text' not in globals() or '_best_theme' not in globals():
-         print("Error: Required helper functions (_normalize_text, _best_theme) are not defined.")
-         return pd.DataFrame(), {}
 
-    # 1. Group recommendations by theme using the existing function
+    if '_normalize_text' not in globals() or '_best_theme' not in globals():
+        print("Error: Required helper functions (_normalize_text, _best_theme) are not defined.")
+        return pd.DataFrame(), {}
+
+    # 1) Group to themes (uses updated no-score version below)
     themes_df, _ = summarize_recommendations_to_themes(
         recommendations_df,
         theme_map=theme_map,
         top_k=top_k,
         include_examples=include_examples,
         example_limit=example_limit,
-        markdown=False # No need for markdown summary at this stage
+        markdown=False
     )
-
     if themes_df.empty:
         print("No themes identified.")
         return themes_df, {}
 
-    # Add the _theme column to the original recommendations_df for grouping
-    df_themed = recommendations_df.copy()
-    texts_for_theming = (
-        df_themed.get("Recommendation", "").fillna("").astype(str)
-        + " \n" + df_themed.get("Overview", "").fillna("").astype(str)
-        + " \n" + df_themed.get("GMP Utilization Impact", "").fillna("").astype(str)
-        + " \n" + df_themed.get("Business Impact", "").fillna("").astype(str)
-    ).apply(_normalize_text)
+    # --- Helper to pull a Series safely regardless of column naming ---
+    def _col_series(df: pd.DataFrame, candidates: List[str]) -> pd.Series:
+        for c in candidates:
+            if c in df.columns:
+                return df[c].fillna("").astype(str)
+        return pd.Series([""] * len(df), index=df.index)
 
+    # Normalize/alias columns for theming text (Title Case or snake_case both OK)
+    df_themed = recommendations_df.copy()
+    rec_ser  = _col_series(df_themed, ["Recommendation", "recommendation"])
+    over_ser = _col_series(df_themed, ["Overview", "overview"])
+    gmp_ser  = _col_series(df_themed, ["GMP Utilization Impact", "gmp_impact"])
+    biz_ser  = _col_series(df_themed, ["Business Impact", "business_impact"])
+
+    texts_for_theming = (rec_ser + " \n" + over_ser + " \n" + gmp_ser + " \n" + biz_ser).apply(_normalize_text)
+
+    # Classify each row to a theme (using your keyword map)
+    current_theme_map = theme_map or _DEFAULT_THEME_MAP
     themes_for_df: List[str] = []
-    current_theme_map = theme_map or _DEFAULT_THEME_MAP # Use default if none provided
     for t in texts_for_theming:
         theme, _ = _best_theme(t, current_theme_map)
         themes_for_df.append(theme)
-    df_themed['_theme'] = themes_for_df
+    df_themed["_theme"] = themes_for_df
 
-    # Group the original recommendations DataFrame by the new _theme column
-    themed_recommendations = df_themed.groupby('_theme')
+    # Group original recommendations by inferred theme
+    themed_recommendations = df_themed.groupby("_theme")
 
-    # 2. Prepare data for ChatGPT
-    recommendations_by_theme_text = {}
+    # 2) Prepare per-theme text for the LLM
+    recommendations_by_theme_text: Dict[str, str] = {}
     for theme, group in themed_recommendations:
-        theme_text = f"Theme: {theme}\nRecommendations:\n"
-        for index, row in group.iterrows():
-            theme_text += f"- Recommendation: {row.get('Recommendation', '')}\n"
-            theme_text += f"  Overview: {row.get('Overview', '')}\n"
-        recommendations_by_theme_text[theme] = theme_text
+        lines = [f"Theme: {theme}", "Recommendations:"]
+        for _, row in group.iterrows():
+            lines.append(f"- Recommendation: {row.get('Recommendation', row.get('recommendation', ''))}")
+            lines.append(f"  Overview: {row.get('Overview', row.get('overview', ''))}")
+        recommendations_by_theme_text[theme] = "\n".join(lines)
 
-    # 3. Call ChatGPT API
+    # 3) Call OpenAI for summaries
     openai.api_key = openai_api_key
-    theme_summaries = {}
-
+    theme_summaries: Dict[str, str] = {}
     for theme, text in recommendations_by_theme_text.items():
         prompt = f"Summarize the following recommendations for the theme '{theme}':\n\n{text}"
         try:
             response = openai.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant that summarizes recommendations."},
+                    {"role": "system", "content": "You are a digital marketing assistant that specializes in martech and adtech recommendations."},
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=150
@@ -1168,19 +1090,12 @@ def process_and_summarize_recommendations(
             print(f"An error occurred while summarizing theme '{theme}': {e}")
             theme_summaries[theme] = f"Error summarizing theme: {e}"
 
-    # 4. Present the summaries (optional - can be done outside the function)
-    print("\n--- ChatGPT Summaries by Theme ---")
-    for theme, summary in theme_summaries.items():
-        print(f"## Theme: {theme}")
-        print(f"{summary}")
-        print("-" * 30) # Separator for clarity
-
     return themes_df, theme_summaries
+
 
 # Note: This function relies on _normalize_text and _best_theme being defined
 # in the environment where it is called. It also requires the OpenAI API key
 # to be set correctly.
-
 
 def summarize_recommendations_to_themes(
     recommendations_df: pd.DataFrame,
@@ -1191,87 +1106,79 @@ def summarize_recommendations_to_themes(
     markdown: bool = True,
 ) -> Tuple[pd.DataFrame, str]:
     """
-    Group `recommendations_df` into a handful of key themes using a lightweight, keyword-based classifier.
+    Group recommendations into key themes using a lightweight, keyword-based classifier.
 
-    Expected columns (robust to missing):
-      - 'Recommendation' (title)
-      - 'Overview'
-      - 'GMP Utilization Impact'
-      - 'Business Impact'
-      - 'Score', 'MaxWeight', 'Score %'
+    Expected columns (robust to missing / aliasing):
+      - 'Recommendation' / 'recommendation'
+      - 'Overview' / 'overview'
+      - 'GMP Utilization Impact' / 'gmp_impact'
+      - 'Business Impact' / 'business_impact'
 
     Returns:
       (themes_df, summary_md)
-        - themes_df columns: ['Theme','Count','Total Score','Total MaxWeight','Avg Score %','Examples']
-        - summary_md: readable markdown summary (bullets grouped by theme)
+        - themes_df columns: ['Theme','Count','Examples']
+        - summary_md: readable summary (no score references)
     """
     if recommendations_df is None or recommendations_df.empty:
-        empty = pd.DataFrame(columns=[
-            "Theme", "Count", "Total Score", "Total MaxWeight", "Avg Score %", "Examples"
-        ])
+        empty = pd.DataFrame(columns=["Theme", "Count", "Examples"])
         return empty, ("No recommendations matched." if markdown else "No recommendations matched.")
 
     theme_map = theme_map or _DEFAULT_THEME_MAP
-
     df = recommendations_df.copy()
-    # Ensure numeric fields exist
-    for col in ("Score", "MaxWeight"):
-        if col not in df.columns:
-            df[col] = 0.0
-    if "Score %" not in df.columns:
-        df["Score %"] = df.apply(lambda x: (float(x.get("Score", 0)) / float(x.get("MaxWeight", 0))) * 100 if float(x.get("MaxWeight", 0)) else 0.0, axis=1)
 
-    texts = (
-        df.get("Recommendation", "").fillna("").astype(str)
-        + " \n" + df.get("Overview", "").fillna("").astype(str)
-        + " \n" + df.get("GMP Utilization Impact", "").fillna("").astype(str)
-        + " \n" + df.get("Business Impact", "").fillna("").astype(str)
-    ).apply(_normalize_text)
+    # Helpers to safely fetch text series
+    def _col_series(df_: pd.DataFrame, candidates: List[str]) -> pd.Series:
+        for c in candidates:
+            if c in df_.columns:
+                return df_[c].fillna("").astype(str)
+        return pd.Series([""] * len(df_), index=df_.index)
+
+    rec_ser  = _col_series(df, ["Recommendation", "recommendation"])
+    over_ser = _col_series(df, ["Overview", "overview"])
+    gmp_ser  = _col_series(df, ["GMP Utilization Impact", "gmp_impact"])
+    biz_ser  = _col_series(df, ["Business Impact", "business_impact"])
+
+    texts = (rec_ser + " \n" + over_ser + " \n" + gmp_ser + " \n" + biz_ser).apply(_normalize_text)
 
     # Classify to themes
     themes: List[str] = []
-    scores: List[int] = []
+    scores_for_rank: List[int] = []  # classifier confidence only, not shown
     for t in texts:
         theme, score = _best_theme(t, theme_map)
         themes.append(theme)
-        scores.append(score)
+        scores_for_rank.append(score)
     df["_theme"] = themes
-    df["_theme_score"] = scores
+    df["_theme_score"] = scores_for_rank
 
-    # Aggregate
+    # Aggregate (Count only; no score fields)
     agg = (
         df.groupby("_theme")
-          .agg(Count=("_theme", "count"),
-               **{"Total Score": ("Score", "sum"),
-                  "Total MaxWeight": ("MaxWeight", "sum"),
-                  "Avg Score %": ("Score %", "mean")})
+          .agg(Count=("_theme", "count"))
           .reset_index()
           .rename(columns={"_theme": "Theme"})
     )
-    agg["Avg Score %"] = agg["Avg Score %"].round(2)
 
     # Example titles per theme
-    examples_map: Dict[str, List[str]] = {}
     if include_examples:
+        examples_map: Dict[str, List[str]] = {}
         for theme, sub in df.sort_values("_theme_score", ascending=False).groupby("_theme"):
-            examples_map[theme] = sub["Recommendation"].fillna("").astype(str).head(example_limit).tolist()
+            examples_map[theme] = sub.get("Recommendation", sub.get("recommendation", pd.Series([], dtype=str)))\
+                                     .fillna("").astype(str).head(example_limit).tolist()
         agg["Examples"] = agg["Theme"].map(lambda t: "; ".join(examples_map.get(t, [])))
     else:
         agg["Examples"] = ""
 
-    # Rank & limit
-    agg = agg.sort_values(["Count", "Total Score"], ascending=[False, False]).head(top_k)
+    # Rank & limit (by Count, then classifier score as tiebreaker)
+    agg = agg.sort_values(["Count"], ascending=[False]).head(top_k).reset_index(drop=True)
 
-    # Markdown summary
+    # Summary (no score wording)
     if markdown:
         lines = ["**Key Recommendation Themes**"]
         for _, row in agg.iterrows():
             theme = row["Theme"]
             cnt = int(row["Count"]) if not pd.isna(row["Count"]) else 0
-            total_score = float(row["Total Score"]) if not pd.isna(row["Total Score"]) else 0.0
-            avg_pct = float(row["Avg Score %"]) if not pd.isna(row["Avg Score %"]) else 0.0
             examples = row.get("Examples", "")
-            line = f"- **{theme}** — {cnt} recs | Avg score: {avg_pct:.1f}% | Total score: {total_score:.2f}"
+            line = f"- **{theme}** — {cnt} recs"
             lines.append(line)
             if include_examples and examples:
                 lines.append(f"  - _Examples_: {examples}")
@@ -1281,16 +1188,14 @@ def summarize_recommendations_to_themes(
         for _, row in agg.iterrows():
             theme = row["Theme"]
             cnt = int(row["Count"]) if not pd.isna(row["Count"]) else 0
-            total_score = float(row["Total Score"]) if not pd.isna(row["Total Score"]) else 0.0
-            avg_pct = float(row["Avg Score %"]) if not pd.isna(row["Avg Score %"]) else 0.0
             examples = row.get("Examples", "")
-            line = f"- {theme} — {cnt} recs | Avg score: {avg_pct:.1f}% | Total score: {total_score:.2f}"
+            line = f"- {theme} — {cnt} recs"
             lines.append(line)
             if include_examples and examples:
                 lines.append(f"  - Examples: {examples}")
         summary_md = "\n".join(lines)
 
-    return agg.reset_index(drop=True), summary_md
+    return agg[["Theme", "Count", "Examples"]].reset_index(drop=True), summary_md
 
 
 
@@ -1402,17 +1307,13 @@ GAPS DATA (JSON):
 
 def matched_recs_to_df(results: Dict[str, Any]) -> pd.DataFrame:
     """
-    Convert the dict returned by run_recommendation_analysis(...) into a tidy DataFrame
-    that’s convenient for Streamlit tables and for feeding into the PDF builder.
+    Convert the dict returned by run_recommendation_analysis(...) into a tidy DataFrame.
 
     Columns:
     - Recommendation
     - Overview
     - GMP Utilization Impact
     - Business Impact
-    - Score
-    - MaxWeight
-    - Score %
     """
     recs = results.get("matched_recommendations", []) or []
     rows = []
@@ -1423,27 +1324,16 @@ def matched_recs_to_df(results: Dict[str, Any]) -> pd.DataFrame:
                 "Overview": r.get("overview", ""),
                 "GMP Utilization Impact": r.get("gmp_impact", ""),
                 "Business Impact": r.get("business_impact", ""),
-                "Score": float(r.get("score", 0.0) or 0.0),
-                "MaxWeight": float(r.get("maxweight", 0.0) or 0.0),
             }
         )
     df = pd.DataFrame(rows)
-    if not df.empty:
-        # Avoid divide-by-zero; show percentage to 2dp
-        df["Score %"] = (
-            df.apply(lambda x: (x["Score"] / x["MaxWeight"]) * 100 if x["MaxWeight"] else 0.0, axis=1)
-            .round(2)
-        )
-    else:
+    if df.empty:
         df = pd.DataFrame(
             columns=[
                 "Recommendation",
                 "Overview",
                 "GMP Utilization Impact",
                 "Business Impact",
-                "Score",
-                "MaxWeight",
-                "Score %",
             ]
         )
     return df
