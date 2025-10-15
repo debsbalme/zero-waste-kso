@@ -1495,3 +1495,219 @@ def gaps_summary_df_to_markdown(df: pd.DataFrame) -> str:
 
     return "\n".join(lines)
 
+
+def alignment_df_to_markdown(align_df: pd.DataFrame) -> str:
+    """
+    Render recommendation→gap alignment DataFrame as Markdown.
+    Groups by recommendation and lists matched gaps with confidence, rationale, and explanation.
+    """
+    if align_df is None or align_df.empty:
+        return "_No alignment results available._"
+
+    lines: List[str] = ["### Recommendation → Gap Alignment"]
+    for rec_id, sub in align_df.groupby("rec_id", sort=False):
+        rec_text = sub["recommendation"].iloc[0] if "recommendation" in sub.columns else rec_id
+        lines.append(f"\n**{rec_id} – {rec_text}**")
+        if sub["gap_id"].fillna("").eq("").all():
+            lines.append("- _No strong matching gap identified._")
+        else:
+            for _, row in sub.iterrows():
+                gid = row.get("gap_id", "")
+                gcat = row.get("gap_category", "")
+                ghead = row.get("gap_heading", "")
+                conf = row.get("confidence", "")
+                how = row.get("how_it_addresses", "")
+                rat = row.get("rationale", "")
+                label = f"{gid} – {gcat}: {ghead}" if gid else "No Match"
+                conf_str = f" (confidence {conf:.2f})" if isinstance(conf, (int, float)) else ""
+                lines.append(f"- **{label}**{conf_str}\n  - *How it addresses:* {how}\n  - *Rationale:* {rat}")
+    return "\n".join(lines)
+
+import re
+import json
+import pandas as pd
+from typing import Dict, Any, List, Optional
+import openai
+import streamlit as st
+
+# ---------- Helpers ----------
+
+def _truncate_text(s: str, max_chars: int = 500) -> str:
+    if s is None:
+        return ""
+    s = str(s).strip()
+    return s if len(s) <= max_chars else s[: max_chars - 1].rstrip() + "…"
+
+def _strip_code_fences(text: str) -> str:
+    m = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
+    return m.group(1) if m else text
+
+def _coerce_json_array(text: str) -> str:
+    s = text.strip()
+    if s.startswith('[') and s.endswith(']'):
+        return s
+    m = re.search(r"\[.*\]", s, re.DOTALL)
+    return m.group(0) if m else s
+
+def _light_json_sanitize(text: str) -> str:
+    s = (text.replace("\u201c", "\"")
+             .replace("\u201d", "\"")
+             .replace("\u2019", "'")
+             .replace("\xa0", " "))
+    s = re.sub(r",\s*([}\]])", r"\1", s)
+    return s
+
+def _parse_json_array_from_text(raw: str) -> List[dict]:
+    candidate = _strip_code_fences(raw)
+    candidate = _coerce_json_array(candidate)
+    candidate = _light_json_sanitize(candidate)
+    data = json.loads(candidate)
+    if not isinstance(data, list):
+        raise ValueError("Parsed JSON is not a list.")
+    return data
+
+
+# ---------- Main Alignment Function ----------
+
+def align_recommendations_to_gaps(
+    rec_results: Dict[str, Any],
+    gaps_df: pd.DataFrame,
+    model_name: str = "gpt-4.1-mini",
+    max_tokens: int = 1600,
+    per_rec_max_gaps: int = 2,
+    openai_api_key: Optional[str] = None,
+) -> pd.DataFrame:
+    """
+    Uses GPT to match each recommendation to the most relevant maturity gaps.
+    Inputs:
+      - rec_results: dict from run_recommendation_analysis(...) with key 'matched_recommendations'
+        Each recommendation supports keys: recommendation, overview
+      - gaps_df: DataFrame with columns: ['Category','Heading','Context','Impact']
+    Returns:
+      pd.DataFrame with columns:
+        ['rec_id','recommendation','gap_id','gap_category','gap_heading','confidence','how_it_addresses','rationale']
+    """
+
+    recs = rec_results.get("matched_recommendations", []) or []
+    required_gap_cols = {"Category", "Heading", "Context", "Impact"}
+    if not recs or gaps_df is None or gaps_df.empty or not required_gap_cols.issubset(gaps_df.columns):
+        return pd.DataFrame(columns=[
+            "rec_id","recommendation","gap_id","gap_category","gap_heading","confidence","how_it_addresses","rationale"
+        ])
+
+    # Build compact JSON payloads
+    rec_items = []
+    for i, r in enumerate(recs, start=1):
+        rec_items.append({
+            "id": f"R{i}",
+            "recommendation": _truncate_text(r.get("recommendation", ""), 600),
+            "overview": _truncate_text(r.get("overview", ""), 800),
+        })
+
+    gap_items = []
+    for j, row in gaps_df.reset_index(drop=True).iterrows():
+        gap_items.append({
+            "id": f"G{j+1}",
+            "category": _truncate_text(row.get("Category", ""), 120),
+            "heading": _truncate_text(row.get("Heading", ""), 200),
+            "context": _truncate_text(row.get("Context", ""), 500),
+            "impact": _truncate_text(row.get("Impact", ""), 500),
+        })
+
+    # Prompt (simplified)
+    prompt = f"""
+You are a senior Adtech/Martech consultant.
+Match each recommendation to the most relevant maturity gaps.
+
+INSTRUCTIONS:
+- Base matching on the recommendation text and its overview.
+- For each recommendation, return up to {per_rec_max_gaps} best matching gap IDs (or [] if none).
+- Provide a brief rationale and how the recommendation addresses those gaps.
+- Confidence: 0.0–1.0 (float).
+
+Return JSON ONLY in this schema:
+[
+  {{
+    "rec_id": "R1",
+    "matched_gap_ids": ["G2","G5"],
+    "confidence": 0.86,
+    "rationale": "Why these gaps match this recommendation.",
+    "how_it_addresses": "What the recommendation changes to resolve the gap(s)."
+  }},
+  ...
+]
+
+GAPS (JSON):
+{json.dumps(gap_items, ensure_ascii=False)}
+
+RECOMMENDATIONS (JSON):
+{json.dumps(rec_items, ensure_ascii=False)}
+""".strip()
+
+    api_key = openai_api_key or st.secrets.get("OPEN_AI_KEY")
+    client = openai.OpenAI(api_key=api_key)
+    resp = client.chat.completions.create(
+        model=model_name,
+        messages=[
+            {"role": "system", "content": "You align marketing recommendations to identified maturity gaps, providing clear reasoning."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.3,
+        max_tokens=max_tokens,
+    )
+
+    raw = resp.choices[0].message.content.strip()
+
+    # Parse JSON
+    try:
+        parsed = _parse_json_array_from_text(raw)
+    except Exception as e:
+        print(f"[align_recommendations_to_gaps] Failed to parse JSON: {e}\nOutput head:\n{raw[:1000]}")
+        return pd.DataFrame(columns=[
+            "rec_id","recommendation","gap_id","gap_category","gap_heading","confidence","how_it_addresses","rationale"
+        ])
+
+    rec_map = {r["id"]: r for r in rec_items}
+    gap_map = {g["id"]: g for g in gap_items}
+
+    # Flatten
+    rows = []
+    for item in parsed:
+        rec_id = str(item.get("rec_id", "")).strip()
+        if not rec_id or rec_id not in rec_map:
+            continue
+        matched_ids = item.get("matched_gap_ids") or []
+        conf = item.get("confidence", "")
+        rationale = str(item.get("rationale", "")).strip()
+        how = str(item.get("how_it_addresses", "")).strip()
+        if isinstance(matched_ids, str):
+            matched_ids = [matched_ids]
+
+        if not matched_ids:
+            rows.append({
+                "rec_id": rec_id,
+                "recommendation": rec_map[rec_id]["recommendation"],
+                "gap_id": "",
+                "gap_category": "",
+                "gap_heading": "",
+                "confidence": conf if isinstance(conf, (int, float)) else "",
+                "how_it_addresses": how,
+                "rationale": rationale,
+            })
+        else:
+            for gid in matched_ids[:per_rec_max_gaps]:
+                g = gap_map.get(gid)
+                rows.append({
+                    "rec_id": rec_id,
+                    "recommendation": rec_map[rec_id]["recommendation"],
+                    "gap_id": gid,
+                    "gap_category": g.get("category", "") if g else "",
+                    "gap_heading": g.get("heading", "") if g else "",
+                    "confidence": conf if isinstance(conf, (int, float)) else "",
+                    "how_it_addresses": how,
+                    "rationale": rationale,
+                })
+
+    return pd.DataFrame(rows, columns=[
+        "rec_id","recommendation","gap_id","gap_category","gap_heading","confidence","how_it_addresses","rationale"
+    ])

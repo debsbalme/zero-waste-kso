@@ -15,7 +15,9 @@ from recommendations import (
     matched_recs_to_df,
     summarize_maturity_gaps_to_df,
     summarize_recommendations_to_themes,
-    gaps_summary_df_to_markdown  # <-- Make sure this helper exists in recommendations.py
+    gaps_summary_df_to_markdown,
+    align_recommendations_to_gaps,
+    alignment_df_to_markdown     # <-- Make sure this helper exists in recommendations.py
 )
 
 
@@ -176,25 +178,44 @@ def main():
                 st.dataframe(st.session_state.get("maturity_drivers_df", pd.DataFrame()), use_container_width=True)
 
             # -------------------- STEP 5: SERVICE RECOMMENDATIONS --------------------
+# -------------------- STEP 5: SERVICE RECOMMENDATIONS (Alignment Only) --------------------
             if st.session_state.step == 5:
-                if st.button("5️⃣ Compute Service Recommendations"):
-                    with st.spinner("Computing Recommendations..."):
-                        results = run_recommendation_analysis(df)
-                        st.session_state.recommendations_df = matched_recs_to_df(results)
-                        st.session_state.recommendation_results = results
+                if st.button("5️⃣ Compute Service Recommendations → Gap Alignment"):
+                    with st.spinner("Aligning recommendations to maturity gaps..."):
+                        # 1) Compute recommendations (no-score version)
+                        rec_results = run_recommendation_analysis(df)
+
+                        # 2) Ensure gaps exist (prefer the Exec Summary gaps if already computed)
+                        gaps_df = st.session_state.get("exec_gaps_df")
+                        if gaps_df is None or gaps_df.empty:
+                            gaps_df = identify_top_maturity_gaps(df)
+
+                        # 3) Align recommendations to gaps
+                        align_df = align_recommendations_to_gaps(
+                            rec_results=rec_results,
+                            gaps_df=gaps_df
+                        )
+
+                        # 4) Persist for display
+                        st.session_state.alignment_df = align_df
                         st.session_state.step = 6
                     st.rerun()
 
-            if st.session_state.step >= 6:
-                st.subheader("5️⃣ Capability / Service Recommendations")
-                rec_df = st.session_state.get("recommendations_df", pd.DataFrame())
-                if not rec_df.empty:
-                    st.dataframe(rec_df, hide_index=True, use_container_width=True)
 
-                    # 🔁 Updated: no total_matched_recommendations — just use DataFrame length
-                    st.write(f"**Total Recommendations:** {len(rec_df)}")
-                else:
-                    st.info("No recommendations matched based on the provided data.")
+                if st.session_state.step >= 6:
+                    st.subheader("5️⃣ Recommendation → Gap Alignment")
+
+                    align_df = st.session_state.get("alignment_df", pd.DataFrame())
+                    if align_df is None or align_df.empty:
+                        st.info("No alignment results available. Try recomputing after generating gaps and recommendations.")
+                    else:
+                        # Tabular view
+                        st.dataframe(align_df, use_container_width=True, hide_index=True)
+
+                        # Readable Markdown view
+                        st.markdown("**Readable Alignment (Markdown View)**")
+                        st.markdown(alignment_df_to_markdown(align_df))
+
 
         except Exception as e:
             st.error(f"An error occurred while processing the CSV file: {e}")
