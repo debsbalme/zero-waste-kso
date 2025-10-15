@@ -1386,3 +1386,40 @@ def matched_recs_to_df(results: Dict[str, Any]) -> pd.DataFrame:
             ]
         )
     return df
+
+
+def gaps_summary_df_to_markdown(df: pd.DataFrame) -> str:
+    """
+    Convert the Category|Theme|Summary DataFrame into readable Markdown.
+    Groups by Category and lists each theme and summary beneath it.
+    Example output:
+
+    ### Maturity Gap Themes
+
+    **Audience Strategy**
+    - **Data Fragmentation** — Audience data is siloed across multiple tools, limiting personalization.
+    - **Limited Activation** — Current workflows underutilize 1P data for lookalike modeling.
+
+    **Measurement**
+    - **Attribution Gaps** — Reporting lacks multi-touch attribution or post-click tracking.
+    """
+    if df is None or df.empty:
+        return "_No summarized maturity gaps available._"
+
+    lines = ["### Maturity Gap Themes"]
+
+    # Group by Category and format each theme under its category
+    for cat, sub in df.groupby("Category", dropna=False):
+        cat_name = "Uncategorized" if pd.isna(cat) or str(cat).strip() == "" else str(cat)
+        lines.append(f"\n**{cat_name}**")
+
+        for _, row in sub.iterrows():
+            theme = str(row.get("Theme", "")).strip()
+            summary = str(row.get("Summary", "")).strip()
+            if theme:
+                lines.append(f"- **{theme}** — {summary}")
+            elif summary:
+                lines.append(f"- {summary}")
+
+    return "\n".join(lines)
+
