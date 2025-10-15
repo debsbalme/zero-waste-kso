@@ -1,6 +1,7 @@
 import pandas as pd
 import json
 import math 
+import openai
 import streamlit as st
 import ast
 
@@ -1288,7 +1289,7 @@ def _parse_json_array_from_text(raw: str) -> List[dict]:
     return data
 
 
-def _truncate(text: str, max_len: int = 180) -> str:
+def _truncate_text(text: str, max_len: int = 180) -> str:
     if text is None:
         return ""
     s = str(text).strip()
