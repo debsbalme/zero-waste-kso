@@ -1206,6 +1206,61 @@ def _truncate(text: str, max_len: int = 180) -> str:
     return s if len(s) <= max_len else s[: max_len - 1].rstrip() + "…"
 
 
+import re
+import json
+import pandas as pd
+
+def _strip_code_fences(text: str) -> str:
+    """
+    Strips ```json ... ``` or ``` ... ``` fences if present.
+    """
+    fence_match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
+    return fence_match.group(1) if fence_match else text
+
+def _coerce_json_array(text: str) -> str:
+    """
+    Attempts to isolate the first JSON array substring in the text.
+    If the whole text is an array, returns it as-is.
+    Otherwise, finds the first '[' and the matching last ']' greedily.
+    """
+    s = text.strip()
+    if s.startswith('[') and s.endswith(']'):
+        return s
+
+    # Try finding a fenced or embedded array
+    m = re.search(r"\[.*\]", s, re.DOTALL)
+    if m:
+        return m.group(0)
+
+    # Fallback: return original (will likely fail json.loads and be handled)
+    return s
+
+def _light_json_sanitize(text: str) -> str:
+    """
+    Light fixes for common model JSON issues:
+    - smart quotes -> straight quotes
+    - trailing commas before ] or }
+    - UTF-8 NBSP trimming
+    """
+    s = text.replace("\u201c", "\"").replace("\u201d", "\"").replace("\u2019", "'")
+    s = s.replace("\xa0", " ")  # non-breaking space
+    # Remove trailing commas before list/object close
+    s = re.sub(r",\s*([}\]])", r"\1", s)
+    return s
+
+def _parse_json_array_from_text(sum_text: str) -> list:
+    """
+    Best-effort parse of a JSON array from model output.
+    Raises ValueError if parsing fails.
+    """
+    candidate = _strip_code_fences(sum_text)
+    candidate = _coerce_json_array(candidate)
+    candidate = _light_json_sanitize(candidate)
+    data = json.loads(candidate)  # let it raise if invalid
+    if not isinstance(data, list):
+        raise ValueError("Parsed JSON is not a list.")
+    return data
+
 def summarize_maturity_gaps_to_df(
     gaps_df: pd.DataFrame,
     per_category_limit: int = 5,
@@ -1216,7 +1271,6 @@ def summarize_maturity_gaps_to_df(
     Summarizes maturity gaps (from mat_gaps_df) into key themes per Category using OpenAI,
     returning a structured DataFrame: Category | Theme | Summary.
     """
-
     required_cols = {"Category", "Heading", "Context", "Impact"}
     if gaps_df is None or gaps_df.empty or not required_cols.issubset(gaps_df.columns):
         return pd.DataFrame(columns=["Category", "Theme", "Summary"])
@@ -1281,27 +1335,25 @@ GAPS DATA (JSON):
 
     sum_text = response.choices[0].message.content.strip()
 
-    # --- Parse JSON safely ---
-    gaps_summ = []
-    gaps_summ = re.split(r'\d+\.\s*\*\*Heading\*\*\:', sum_text)
+    # --- Parse JSON safely (robust) ---
+    try:
+        parsed = _parse_json_array_from_text(sum_text)
+    except Exception as e:
+        # If parsing fails, return an empty df but keep a clue in logs
+        print(f"Failed to parse JSON from model output: {e}\nRaw output:\n{sum_text[:1000]}")
+        return pd.DataFrame(columns=["Category", "Theme", "Summary"])
 
-    for entry in gaps_summ[1:]:
-        cat_match = re.search(r'(.*?)\s*\*\*\s*Category\*\*\:', entry, re.DOTALL)
-        theme_match = re.search(r'\*\*\s*Theme\*\*\:', entry, re.DOTALL)
-        summary_match = re.search(r'\*\*\s*Summary\*\*\:\s*(.*)', entry, re.DOTALL)
+    # Normalize into DataFrame
+    rows = []
+    for rec in parsed:
+        # Be defensive about keys
+        cat = (rec.get("Category") or "").strip()
+        theme = (rec.get("Theme") or "").strip()
+        summ = (rec.get("Summary") or "").strip()
+        if cat or theme or summ:
+            rows.append({"Category": cat, "Theme": theme, "Summary": summ})
 
-        category = cat_match.group(1).strip() if cat_match else "N/A"
-        themes = theme_match.group(1).strip() if theme_match else "N/A"
-        summary = summary_match.group(1).strip() if summary_match else "N/A"
-
-        gaps_summ.append({
-            "Heading": category,
-            "Context": themes,
-            "Impact": summary
-        })
-
-    # Create a pandas DataFrame
-    mat_gaps_summary_df = pd.DataFrame(gaps_summ)
+    mat_gaps_summary_df = pd.DataFrame(rows, columns=["Category", "Theme", "Summary"])
     return mat_gaps_summary_df
 
 

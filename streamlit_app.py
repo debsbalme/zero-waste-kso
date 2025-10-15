@@ -95,22 +95,13 @@ def main():
                     st.session_state.exec_gaps_md = gaps_md
 
                     # High-level KPIs
-                    st.session_state.exec_total_recs = rec_results.get('total_matched_recommendations', 0)
-                    st.session_state.exec_total_score = rec_results.get('total_score', 0.0)
-                    st.session_state.exec_total_max = rec_results.get('total_max_score', 0.0)
+
 
                     st.session_state.step = 1
                     st.rerun()
 
             if st.session_state.step >= 0 and "exec_themes_md" in st.session_state:
                 st.subheader("0️⃣ Executive Summary")
-                kpi_cols = st.columns(3)
-                with kpi_cols[0]:
-                    st.metric("Total Recs", st.session_state.get("exec_total_recs", 0))
-                with kpi_cols[1]:
-                    st.metric("Total Score", f"{st.session_state.get('exec_total_score', 0.0):.2f}")
-                with kpi_cols[2]:
-                    st.metric("Total Max", f"{st.session_state.get('exec_total_max', 0.0):.2f}")
 
                 st.markdown("**Key Recommendation Themes**")
                 st.markdown(st.session_state.exec_themes_md)
