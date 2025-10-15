@@ -1,14 +1,11 @@
-# app.py (updated) — adds an Executive Summary step that uses
-# summarize_maturity_gaps_to_bullets() and summarize_recommendations_to_themes()
+# app.py — Executive Summary + full flow with Markdown gaps rendering
 
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import base64
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-
-# Import your existing functions plus the two new helpers
+# ---------- Imports from your analysis module ----------
 from recommendations import (
     run_recommendation_analysis,
     generate_category_summary,
@@ -17,7 +14,8 @@ from recommendations import (
     identify_top_maturity_drivers,
     matched_recs_to_df,
     summarize_maturity_gaps_to_df,
-    summarize_recommendations_to_themes
+    summarize_recommendations_to_themes,
+    gaps_summary_df_to_markdown,  # <-- Make sure this helper exists in recommendations.py
 )
 
 
@@ -57,7 +55,9 @@ def main():
     if uploaded_file is not None:
         try:
             df = pd.read_csv(uploaded_file)
-            required_columns = ['Category', 'Question', 'Answer', 'Score', 'MaxWeight']
+
+            # 🔁 Updated: remove Score/MaxWeight from required columns
+            required_columns = ['Category', 'Question', 'Answer']
             if not all(col in df.columns for col in required_columns):
                 st.error(
                     "The uploaded CSV must contain the following columns: **{}**".format(
@@ -77,47 +77,54 @@ def main():
             # -------------------- STEP 0: EXECUTIVE SUMMARY --------------------
             if st.session_state.step == 0:
                 if st.button("0️⃣ Generate Executive Summary"):
-                    # Recommendations → themes
-                    rec_results = run_recommendation_analysis(df)
-                    recs_df = matched_recs_to_df(rec_results)
-                    themes_df, themes_md = summarize_recommendations_to_themes(recs_df)
+                    with st.spinner("Generating Executive Summary..."):
+                        # Recommendations → themes
+                        rec_results = run_recommendation_analysis(df)
+                        recs_df = matched_recs_to_df(rec_results)
+                        themes_df, themes_md = summarize_recommendations_to_themes(recs_df)
 
-                    # Gaps → bullets
-                    gaps_df = identify_top_maturity_gaps(df)
-                    gaps_md = summarize_maturity_gaps_to_df(gaps_df, per_category_limit=5)
+                        # Gaps → DF then Markdown (Option A)
+                        gaps_df = identify_top_maturity_gaps(df)
+                        gaps_summary_df = summarize_maturity_gaps_to_df(gaps_df, per_category_limit=5)
+                        gaps_md = gaps_summary_df_to_markdown(gaps_summary_df)
 
-                    # Persist in session
-                    st.session_state.exec_rec_results = rec_results
-                    st.session_state.exec_recs_df = recs_df
-                    st.session_state.exec_themes_df = themes_df
-                    st.session_state.exec_themes_md = themes_md
-                    st.session_state.exec_gaps_df = gaps_df
-                    st.session_state.exec_gaps_md = gaps_md
+                        # Persist in session
+                        st.session_state.exec_rec_results = rec_results
+                        st.session_state.exec_recs_df = recs_df
+                        st.session_state.exec_themes_df = themes_df
+                        st.session_state.exec_themes_md = themes_md
+                        st.session_state.exec_gaps_df = gaps_df
+                        st.session_state.exec_gaps_summary_df = gaps_summary_df
+                        st.session_state.exec_gaps_md = gaps_md
 
-                    # High-level KPIs
-
-
-                    st.session_state.step = 1
+                        # Advance
+                        st.session_state.step = 1
                     st.rerun()
 
             if st.session_state.step >= 0 and "exec_themes_md" in st.session_state:
                 st.subheader("0️⃣ Executive Summary")
 
-                st.markdown("**Key Recommendation Themes**")
+                # Themes (Markdown + table)
                 st.markdown(st.session_state.exec_themes_md)
                 with st.expander("Theme Details (table)"):
                     st.dataframe(st.session_state.exec_themes_df, use_container_width=True)
 
-                st.markdown("**Top Maturity Gaps (bulleted)**")
+                # Gaps (Markdown + parsed summary table + raw table)
+                st.markdown("**Top Maturity Gaps (Markdown View)**")
                 st.markdown(st.session_state.exec_gaps_md)
+
+                with st.expander("Gaps (parsed summary table)"):
+                    st.dataframe(st.session_state.exec_gaps_summary_df, use_container_width=True)
+
                 with st.expander("Gaps (raw table)"):
                     st.dataframe(st.session_state.exec_gaps_df, use_container_width=True)
 
             # -------------------- STEP 1: CATEGORY SUMMARY --------------------
             if st.session_state.step == 1:
                 if st.button("1️⃣ Generate Category Summary"):
-                    st.session_state.summary_text = generate_category_summary(df)
-                    st.session_state.step = 2
+                    with st.spinner("Generating Category Summary..."):
+                        st.session_state.summary_text = generate_category_summary(df)
+                        st.session_state.step = 2
                     st.rerun()
 
             if st.session_state.step >= 2:
@@ -127,8 +134,9 @@ def main():
             # -------------------- STEP 2: BULLET SUMMARY --------------------
             if st.session_state.step == 2:
                 if st.button("2️⃣ Generate Bullet Summary"):
-                    st.session_state.bullet_summary = generate_bullet_summary(df)
-                    st.session_state.step = 3
+                    with st.spinner("Generating Bullet Summary..."):
+                        st.session_state.bullet_summary = generate_bullet_summary(df)
+                        st.session_state.step = 3
                     st.rerun()
 
             if st.session_state.step >= 3:
@@ -139,19 +147,28 @@ def main():
             # -------------------- STEP 3: MATURITY GAPS --------------------
             if st.session_state.step == 3:
                 if st.button("3️⃣ Identify Maturity Gaps"):
-                    st.session_state.maturity_gap_df = identify_top_maturity_gaps(df)
-                    st.session_state.step = 4
+                    with st.spinner("Identifying Maturity Gaps..."):
+                        st.session_state.maturity_gap_df = identify_top_maturity_gaps(df)
+                        st.session_state.step = 4
                     st.rerun()
 
             if st.session_state.step >= 4:
                 st.subheader("3️⃣ Maturity Gaps")
                 st.dataframe(st.session_state.get("maturity_gap_df", pd.DataFrame()), use_container_width=True)
 
+                # Optional: show the Markdown-parsed themes here as well
+                mg_df = st.session_state.get("maturity_gap_df", pd.DataFrame())
+                if not mg_df.empty:
+                    parsed_df = summarize_maturity_gaps_to_df(mg_df, per_category_limit=5)
+                    st.markdown("**Maturity Gap Themes (Markdown View)**")
+                    st.markdown(gaps_summary_df_to_markdown(parsed_df))
+
             # -------------------- STEP 4: MATURITY DRIVERS --------------------
             if st.session_state.step == 4:
                 if st.button("4️⃣ Identify Maturity Drivers"):
-                    st.session_state.maturity_drivers_df = identify_top_maturity_drivers(df)
-                    st.session_state.step = 5
+                    with st.spinner("Identifying Maturity Drivers..."):
+                        st.session_state.maturity_drivers_df = identify_top_maturity_drivers(df)
+                        st.session_state.step = 5
                     st.rerun()
 
             if st.session_state.step >= 5:
@@ -161,11 +178,11 @@ def main():
             # -------------------- STEP 5: SERVICE RECOMMENDATIONS --------------------
             if st.session_state.step == 5:
                 if st.button("5️⃣ Compute Service Recommendations"):
-                    # Full analysis then flatten to a tidy table
-                    results = run_recommendation_analysis(df)
-                    st.session_state.recommendations_df = matched_recs_to_df(results)
-                    st.session_state.recommendation_results = results
-                    st.session_state.step = 6
+                    with st.spinner("Computing Recommendations..."):
+                        results = run_recommendation_analysis(df)
+                        st.session_state.recommendations_df = matched_recs_to_df(results)
+                        st.session_state.recommendation_results = results
+                        st.session_state.step = 6
                     st.rerun()
 
             if st.session_state.step >= 6:
@@ -173,9 +190,9 @@ def main():
                 rec_df = st.session_state.get("recommendations_df", pd.DataFrame())
                 if not rec_df.empty:
                     st.dataframe(rec_df, hide_index=True, use_container_width=True)
-                    st.write(
-                        f"**Total Recommendations:** {st.session_state.get('recommendation_results', {}).get('total_matched_recommendations', len(rec_df))}"
-                    )
+
+                    # 🔁 Updated: no total_matched_recommendations — just use DataFrame length
+                    st.write(f"**Total Recommendations:** {len(rec_df)}")
                 else:
                     st.info("No recommendations matched based on the provided data.")
 

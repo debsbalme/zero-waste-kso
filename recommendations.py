@@ -1206,9 +1206,6 @@ def _truncate(text: str, max_len: int = 180) -> str:
     return s if len(s) <= max_len else s[: max_len - 1].rstrip() + "…"
 
 
-import re
-import json
-import pandas as pd
 
 def _strip_code_fences(text: str) -> str:
     """
@@ -1311,7 +1308,7 @@ Return JSON ONLY in this exact format:
   {{
     "Category": "<Category Name>",
     "Theme": "<Short Theme Name>",
-    "Summary": "<2–3 sentence summary combining related gaps>"
+    "Summary": "<2–3 sentences summary combining related gaps>"
   }},
   ...
 ]
