@@ -177,7 +177,6 @@ def main():
                 st.subheader("4️⃣ Maturity Drivers")
                 st.dataframe(st.session_state.get("maturity_drivers_df", pd.DataFrame()), use_container_width=True)
 
-            # -------------------- STEP 5: SERVICE RECOMMENDATIONS --------------------
 # -------------------- STEP 5: SERVICE RECOMMENDATIONS (Alignment Only) --------------------
             if st.session_state.step == 5:
                 if st.button("5️⃣ Compute Service Recommendations → Gap Alignment"):
@@ -201,21 +200,20 @@ def main():
                         st.session_state.step = 6
                     st.rerun()
 
+            # ⬇️ IMPORTANT: this must be OUTSIDE the step==5 block
+            if st.session_state.step >= 6:
+                st.subheader("5️⃣ Recommendation → Gap Alignment")
 
-                if st.session_state.step >= 6:
-                    st.subheader("5️⃣ Recommendation → Gap Alignment")
+                align_df = st.session_state.get("alignment_df", pd.DataFrame())
+                if align_df is None or align_df.empty:
+                    st.info("No alignment results available. Try recomputing after generating gaps and recommendations.")
+                else:
+                    # Tabular view
+                    st.dataframe(align_df, use_container_width=True, hide_index=True)
 
-                    align_df = st.session_state.get("alignment_df", pd.DataFrame())
-                    if align_df is None or align_df.empty:
-                        st.info("No alignment results available. Try recomputing after generating gaps and recommendations.")
-                    else:
-                        # Tabular view
-                        st.dataframe(align_df, use_container_width=True, hide_index=True)
-
-                        # Readable Markdown view
-                        st.markdown("**Readable Alignment (Markdown View)**")
-                        st.markdown(alignment_df_to_markdown(align_df))
-
+                    # Readable Markdown view
+                    st.markdown("**Readable Alignment (Markdown View)**")
+                    st.markdown(alignment_df_to_markdown(align_df))
 
         except Exception as e:
             st.error(f"An error occurred while processing the CSV file: {e}")
