@@ -15,7 +15,7 @@ from recommendations import (
     matched_recs_to_df,
     summarize_maturity_gaps_to_df,
     summarize_recommendations_to_themes,
-    gaps_summary_df_to_markdown,  # <-- Make sure this helper exists in recommendations.py
+    gaps_summary_df_to_markdown  # <-- Make sure this helper exists in recommendations.py
 )
 
 
