@@ -108,18 +108,11 @@ def main():
 
                 # Themes (Markdown + table)
                 st.markdown(st.session_state.exec_themes_md)
-                with st.expander("Theme Details (table)"):
-                    st.dataframe(st.session_state.exec_themes_df, use_container_width=True)
 
                 # Gaps (Markdown + parsed summary table + raw table)
-                st.markdown("**Top Maturity Gaps (Markdown View)**")
+                st.markdown("**Top Maturity Gaps **")
                 st.markdown(st.session_state.exec_gaps_md)
 
-                with st.expander("Gaps (parsed summary table)"):
-                    st.dataframe(st.session_state.exec_gaps_summary_df, use_container_width=True)
-
-                with st.expander("Gaps (raw table)"):
-                    st.dataframe(st.session_state.exec_gaps_df, use_container_width=True)
 
             # -------------------- STEP 1: CATEGORY SUMMARY --------------------
             if st.session_state.step == 1:
@@ -158,12 +151,6 @@ def main():
                 st.subheader("3️⃣ Maturity Gaps")
                 st.dataframe(st.session_state.get("maturity_gap_df", pd.DataFrame()), use_container_width=True)
 
-                # Optional: show the Markdown-parsed themes here as well
-                mg_df = st.session_state.get("maturity_gap_df", pd.DataFrame())
-                if not mg_df.empty:
-                    parsed_df = summarize_maturity_gaps_to_df(mg_df, per_category_limit=5)
-                    st.markdown("**Maturity Gap Themes (Markdown View)**")
-                    st.markdown(gaps_summary_df_to_markdown(parsed_df))
 
             # -------------------- STEP 4: MATURITY DRIVERS --------------------
             if st.session_state.step == 4:

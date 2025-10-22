@@ -785,6 +785,10 @@ def identify_top_maturity_gaps(df, model_name: str = "gpt-4.1-mini", max_tokens:
         if col not in df.columns:
             raise ValueError(f"Missing required column: '{col}'")
 
+    GAP_DRIVER_PATTERN = re.compile(
+    r"^\s*([^\*]+?)\s*\*\*\s*Context\s*\*\*\s*:\s*(.*?)\s*\*\*\s*Impact\s*\*\*\s*:\s*(.*?)$",
+    re.DOTALL | re.IGNORECASE
+    )
     # Safe comments field
     has_comments = "Comment" in df.columns
 
@@ -844,63 +848,58 @@ Answers: {answers}
 Comments: {comments}
         """.strip()
 
-        resp = client.chat.completions.create(
-            model=model_name,
-            messages=[
-                {"role": "system", "content": "You are a marketing maturity consultant focused on identifying key capability gaps from audits."},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=max_tokens,
-            temperature=0.6,
-        )
+        try:
+            resp = client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": "You are a marketing maturity consultant focused on identifying key capability gaps from audits."},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=max_tokens,
+                temperature=0.6,
+            )
+            text = resp.choices[0].message.content if resp and resp.choices else ""
+        except Exception as e:
+            print(f"Error calling OpenAI API for category '{cat}': {e}")
+            text = "" # Skip parsing if API call failed
 
-        text = resp.choices[0].message.content if resp and resp.choices else ""
-
-        # --- Parse the maturity gaps text into rows for this category ---
+        # --- REVISED PARSING LOGIC ---
         gaps = []
-        # split on "1. **Heading**:" / "2. **Heading**:" etc
+        # Split by the gap number and Heading label to isolate each gap
         parts = re.split(r'\n?\s*\d+\.\s*\*\*Heading\*\*\s*:\s*', text)
-        # First split element is preamble; skip it
-        for chunk in parts[1:]:
-            # heading is the text up to **Context**:
-            heading_match = re.match(r'(.*?)\s*\*\*\s*Context\*\*\s*:\s*(.*)', chunk, re.DOTALL)
-            if heading_match:
-                heading_text = heading_match.group(1).strip()
-                rest = heading_match.group(2)
-            else:
-                # fallback: try to parse up to a newline
-                first_line = chunk.strip().splitlines()[0] if chunk.strip() else "N/A"
-                heading_text = first_line.strip()
-                rest = chunk[len(first_line):]
 
-            context_match = re.search(r'\*\*\s*Context\*\*\s*:\s*(.*?)\s*\*\*\s*Impact\*\*\s*:\s*(.*)', rest, re.DOTALL)
-            if context_match:
-                context_text = context_match.group(1).strip()
-                impact_text = context_match.group(2).strip()
-            else:
-                # Fallback: try to grab lines labeled Context/Impact even if formatting drifts
-                context_alt = re.search(r'Context\s*:\s*(.*)', rest)
-                impact_alt = re.search(r'Impact\s*:\s*(.*)', rest)
-                context_text = context_alt.group(1).strip() if context_alt else "N/A"
-                impact_text = impact_alt.group(1).strip() if impact_alt else "N/A"
+        for chunk in parts[1:]: # Skip the first part (preamble)
+            match = GAP_DRIVER_PATTERN.search(chunk.strip())
 
-            gaps.append({
-                "Category": cat,
-                "Heading": heading_text or "N/A",
-                "Context": context_text or "N/A",
-                "Impact": impact_text or "N/A",
-            })
+            if match:
+                # Groups: 1=Heading, 2=Context, 3=Impact
+                gaps.append({
+                    "Category": cat,
+                    "Heading": match.group(1).strip() or "N/A",
+                    "Context": match.group(2).strip() or "N/A",
+                    "Impact": match.group(3).strip() or "N/A",
+                })
+            else:
+                 # Fallback for completely unparseable chunk
+                 gaps.append({
+                    "Category": cat,
+                    "Heading": f"Parsing Failed (Chunk: {chunk[:50]}...)",
+                    "Context": "N/A",
+                    "Impact": "N/A",
+                })
+        # -----------------------------
 
         all_rows.extend(gaps)
 
     mat_gaps_df = pd.DataFrame(all_rows, columns=["Category", "Heading", "Context", "Impact"])
 
-    # Drop empty rows if any
+    # Drop empty/failed rows
     if not mat_gaps_df.empty:
         mask_empty = mat_gaps_df[["Heading", "Context", "Impact"]].apply(
             lambda r: all((str(x).strip() in {"", "N/A"}) for x in r), axis=1
         )
         mat_gaps_df = mat_gaps_df[~mask_empty].reset_index(drop=True)
+
     return mat_gaps_df
 
 
@@ -973,6 +972,11 @@ def _parse_drivers_from_text(category: str, text: str) -> List[dict]:
 
     return rows
 
+GAP_DRIVER_PATTERN = re.compile(
+    r"^\s*([^\*]+?)\s*\*\*\s*Context\s*\*\*\s*:\s*(.*?)\s*\*\*\s*Impact\s*\*\*\s*:\s*(.*?)$",
+    re.DOTALL | re.IGNORECASE
+)
+
 def identify_top_maturity_drivers(
     df: pd.DataFrame,
     model_name: str = "gpt-4.1-mini",
@@ -1044,19 +1048,34 @@ Comments: {comments}
         )
 
         text = resp.choices[0].message.content if resp and resp.choices else ""
-        parsed_rows = _parse_drivers_from_text(cat, text)
+
+        parsed_rows = []
+        # Split by the driver number and Heading label to isolate each driver
+        parts = re.split(r'\n?\s*\d+\.\s*\*\*Heading\*\*\s*:\s*', text)
+
+        for chunk in parts[1:]: # Skip the first part (preamble)
+            match = GAP_DRIVER_PATTERN.search(chunk.strip())
+
+            if match:
+                # Groups: 1=Heading, 2=Context, 3=Impact
+                parsed_rows.append({
+                    "Category": cat,
+                    "Heading": match.group(1).strip() or "N/A",
+                    "Context": match.group(2).strip() or "N/A",
+                    "Impact": match.group(3).strip() or "N/A",
+                })
+            else:
+                 # Fallback for completely unparseable chunk
+                 # (Optional: Can remove this fallback if clean output is strictly required)
+                 pass
+
         all_rows.extend(parsed_rows)
+        # --------------------------------------------------
 
     mat_drivers_df = pd.DataFrame(all_rows, columns=["Category", "Heading", "Context", "Impact"])
 
     # Remove rows where all fields are effectively empty/N/A
-    if not mat_drivers_df.empty:
-        mask_empty = mat_drivers_df[["Heading", "Context", "Impact"]].apply(
-            lambda r: all((str(x).strip() in {"", "N/A"}) for x in r), axis=1
-        )
-        mat_drivers_df = mat_drivers_df[~mask_empty].reset_index(drop=True)
 
-    return mat_drivers_df
 
 
 
