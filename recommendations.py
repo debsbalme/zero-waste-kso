@@ -1072,11 +1072,17 @@ Comments: {comments}
         all_rows.extend(parsed_rows)
         # --------------------------------------------------
 
-    mat_drivers_df = pd.DataFrame(all_rows, columns=["Category", "Heading", "Context", "Impact"])
+    maturity_drivers_df = pd.DataFrame(all_rows, columns=["Category", "Heading", "Context", "Impact"])
 
     # Remove rows where all fields are effectively empty/N/A
+    # Drop empty/failed rows
+    if not maturity_drivers_df.empty:
+        mask_empty = maturity_drivers_df[["Heading", "Context", "Impact"]].apply(
+            lambda r: all((str(x).strip() in {"", "N/A"}) for x in r), axis=1
+        )
+        maturity_drivers_df = maturity_drivers_df[~mask_empty].reset_index(drop=True)
 
-
+    return maturity_drivers_df
 
 
 def _normalize_text(s: Optional[str]) -> str:
