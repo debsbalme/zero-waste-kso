@@ -487,7 +487,46 @@ RECOMMENDATION_SET = [
         ],
         "recommendation": "Platform Architecture Optimization Wedge (Web+App)",
         "overview": "Initial analysis suggests overlapping capabilities in web and app analytics platforms, with potential to streamline. We recommend conducting a thorough analysis of your current platform architecture to identify any overlapping capabilities, redundant technologies or critical gaps. This assessment will help streamline your martech stack, reduce unnecessary costs and ensure each platform plays a clear, complementary role. The outcome will drive greater operational efficiency, improve data integration and enable a more scalable, future-ready marketing infrastructure."
+    },
+    {
+        "set_id": "CDP_Opt_Cons",
+        "questions": [
+            {
+                "question": "Which of the following use cases is your Customer Data Platform (CDP) currently being used for? (select all that apply)",
+                 "match_criteria": {
+                 "min_matches": 4,
+              "or_group": ["Personalized Recommendations. Using behavioral and transactional data to serve personalized, dynamic, context-aware offers or products.","Intelligent Enrichment. Enrich audience segments with AI/ML model insights such as propensity scoring or sentiment analysis.","Omnichannel Journey Orchestration. Coordinating consistent, deduplicated, messaging across email, paid media, SMS, push and web.","Automated Triggers & Journey. Trigger real-time communications based on user behavior or lifecycle stage.","Retention & Loyalty Programs. Track loyalty tiers, reward points, and re-engage dormant users using predictive insights.","Churn Reduction & Lifetime Value Prediction. Identify at-risk customers and optimize for higher customer lifetime value.","Monetization of O&O. Powering retail media and/or partner activation across owned & operated channels and/or 1st party audiences","Consent & Privacy Management. Managing user consent preferences and ensure compliance with data privacy regulations.","Geo Targeting. Adapting experiences and offers based on user location, region, or local regulations.","Other"]
+            }
+            },
+            {
+                "question": "Overall, how well is your Customer Data Platform (CDP) meeting your organization’s expectations in delivering the required audience strategy use cases?",
+                "answer": ["Partially meeting expectations","Not meeting expectations"]
+            },
+            {
+                "question": "Do you have a Customer Data Platform (CDP)?",
+                "answer": ["Yes"]
+            }
+        ],
+        "recommendation": "CDP Optimization Consultancy",
+        "overview": "We recommend conducting a review of existing CDP use cases to ensure they are delivering full value and to identify opportunities to expand the range of active use cases, increasing the overall potential of the CDP. The review should focus on underutilized capabilities to unlock new opportunities for personalization, measurement, and automation. This approach ensures your CDP operates as a strategic growth driver, maximizing the return on your technology investment."
+    },
+   {
+        "set_id": "CDP_Assess",
+        "questions": [
+            {
+                "question": "Do you have a Customer Data Platform (CDP)?",
+                "answer": ["No, we are unsure whether or not a CDP is required at this time","No, we have explored the need for a CDP and not determined whether or not we require one"]
+            },
+            {
+                "question": "Which of the following Audience Strategy use cases would your organization benefit from, but is not currently undertaking? (Select all that apply)",
+                "answer": ["None of the above"],
+                "type": "negative_choice"
+            }    
+        ],
+        "recommendation": "CDP Readiness",
+        "overview": "We recommend undertaking a comprehensively exploring CDP readiness, to determine whether a CDP  is required for desired use cases, or if existing technologies can be optimized to deliver similar capabilities. Identification of technology gaps, integration opportunities and use case priorities can inform investment decisions and establish a clear roadmap for value realization. This ensures resources are directed toward the most effective solution, whether through CDP adoption, enhancement of existing systems, or a hybrid approach."
     }
+
 ]
 
 
