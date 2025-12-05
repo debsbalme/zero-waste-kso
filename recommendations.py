@@ -1653,14 +1653,28 @@ def align_recommendations_to_gaps(
       - gaps_df: DataFrame with columns: ['Category','Heading','Context','Impact']
     Returns:
       pd.DataFrame with columns:
-        ['rec_id','recommendation','gap_id','gap_category','gap_heading','confidence','how_it_addresses','rationale']
+        ['rec_id','recommendation','overview','gap_id','gap_category','gap_heading',
+         'confidence','how_it_addresses','rationale']
     """
 
     recs = rec_results.get("matched_recommendations", []) or []
     required_gap_cols = {"Category", "Heading", "Context", "Impact"}
-    if not recs or gaps_df is None or gaps_df.empty or not required_gap_cols.issubset(gaps_df.columns):
+    if (
+        not recs
+        or gaps_df is None
+        or gaps_df.empty
+        or not required_gap_cols.issubset(gaps_df.columns)
+    ):
         return pd.DataFrame(columns=[
-            "rec_id","recommendation","gap_id","gap_category","gap_heading","confidence","how_it_addresses","rationale"
+            "rec_id",
+            "recommendation",
+            "overview",
+            "gap_id",
+            "gap_category",
+            "gap_heading",
+            "confidence",
+            "how_it_addresses",
+            "rationale",
         ])
 
     # Build compact JSON payloads
@@ -1717,7 +1731,10 @@ RECOMMENDATIONS (JSON):
     resp = client.chat.completions.create(
         model=model_name,
         messages=[
-            {"role": "system", "content": "You align marketing recommendations to identified maturity gaps, providing clear reasoning."},
+            {
+                "role": "system",
+                "content": "You align marketing recommendations to identified maturity gaps, providing clear reasoning.",
+            },
             {"role": "user", "content": prompt},
         ],
         temperature=0.3,
@@ -1732,7 +1749,15 @@ RECOMMENDATIONS (JSON):
     except Exception as e:
         print(f"[align_recommendations_to_gaps] Failed to parse JSON: {e}\nOutput head:\n{raw[:1000]}")
         return pd.DataFrame(columns=[
-            "rec_id","recommendation","gap_id","gap_category","gap_heading","confidence","how_it_addresses","rationale"
+            "rec_id",
+            "recommendation",
+            "overview",
+            "gap_id",
+            "gap_category",
+            "gap_heading",
+            "confidence",
+            "how_it_addresses",
+            "rationale",
         ])
 
     rec_map = {r["id"]: r for r in rec_items}
@@ -1744,38 +1769,50 @@ RECOMMENDATIONS (JSON):
         rec_id = str(item.get("rec_id", "")).strip()
         if not rec_id or rec_id not in rec_map:
             continue
+
         matched_ids = item.get("matched_gap_ids") or []
         conf = item.get("confidence", "")
         rationale = str(item.get("rationale", "")).strip()
         how = str(item.get("how_it_addresses", "")).strip()
+
         if isinstance(matched_ids, str):
             matched_ids = [matched_ids]
 
+        base_rec = {
+            "rec_id": rec_id,
+            "recommendation": rec_map[rec_id]["recommendation"],
+            "overview": rec_map[rec_id]["overview"],
+            "confidence": conf if isinstance(conf, (int, float)) else "",
+            "how_it_addresses": how,
+            "rationale": rationale,
+        }
+
         if not matched_ids:
             rows.append({
-                "rec_id": rec_id,
-                "recommendation": rec_map[rec_id]["recommendation"],
+                **base_rec,
                 "gap_id": "",
                 "gap_category": "",
                 "gap_heading": "",
-                "confidence": conf if isinstance(conf, (int, float)) else "",
-                "how_it_addresses": how,
-                "rationale": rationale,
             })
         else:
             for gid in matched_ids[:per_rec_max_gaps]:
                 g = gap_map.get(gid)
                 rows.append({
-                    "rec_id": rec_id,
-                    "recommendation": rec_map[rec_id]["recommendation"],
+                    **base_rec,
                     "gap_id": gid,
                     "gap_category": g.get("category", "") if g else "",
                     "gap_heading": g.get("heading", "") if g else "",
-                    "confidence": conf if isinstance(conf, (int, float)) else "",
-                    "how_it_addresses": how,
-                    "rationale": rationale,
                 })
 
     return pd.DataFrame(rows, columns=[
-        "rec_id","recommendation","gap_id","gap_category","gap_heading","confidence","how_it_addresses","rationale"
+        "rec_id",
+        "recommendation",
+        "overview",
+        "gap_id",
+        "gap_category",
+        "gap_heading",
+        "confidence",
+        "how_it_addresses",
+        "rationale",
     ])
+
