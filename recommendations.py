@@ -11,6 +11,27 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 # Define the Recommendation Set as provided in your agent's internal knowledge base
 RECOMMENDATION_SET = [
     {
+        "question": "Do you see conflicting identity data across different platforms, vendors or solutions?",
+        "answer": ["We regularly encounter conflicting identity signals between vendors, with limited ability to resolve them.","We have no centralized identity management, and data conflicts across vendors are unmanaged or unknown."],
+        "recommendation": "RealID - Maintain unified customer profile and resolve conflicting data use case",
+        "overview": "We recommend exploring a centralized identity solution that consolidates signals across vendors, resolves conflicting data through deterministic and probabilistic matching, and maintains a unified customer profile across all platforms.",
+        "gap": ""
+    },
+    {
+        "question": "Do you see conflicting measurement results across different vendors or solutions?",
+        "answer": ["We regularly encounter conflicting conversion or performance data across vendors with limited ability to resolve.","We have no unified measurement approach, and platform-reported results often differ significantly."],
+        "recommendation": "RealID - Unify measurement across platforms & vendors use case",
+        "overview": "We recommend exploring an identity solution to reconcile conflicting measurement results across platforms and vendors. Enable consistent attribution, accurate conversion counting, and a single view of performance, improving decision-making and reducing reporting inefficiencies.",
+        "gap": ""
+    },
+    {
+        "question": "Are audiences pushed out for activation across multiple partners consistent in terms of size, match rate and composition?",
+        "answer": ["We experience frequent inconsistencies in audience size or match rate between partners, impacting campaign planning & performance.","No, we lack visibility or control over how audiences match or scale across activation partners"],
+        "recommendation": "RealID - Consistent audience activation use case",
+        "overview": "We recommend exploring an identity solution to unify customer data and ensure consistent audience activation across partners. Minimize audience mismatches, reduce wasted impressions, and improve targeting accuracy, leading to more efficient activation and clearer performance insights.",
+        "gap": ""
+    },
+    {
         "question": "which automated bidding strategies have you used in dv360? please give further context of the performance in the comments section.",
         "answer": "Web analytics and funnel analysis",
         "type": "negative_choice",
