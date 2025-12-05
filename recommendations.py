@@ -1606,27 +1606,48 @@ def alignment_df_to_markdown(align_df: pd.DataFrame) -> str:
     """
     Render recommendation→gap alignment DataFrame as Markdown.
     Groups by recommendation and lists matched gaps with confidence, rationale, and explanation.
+    Includes the 'overview' column when present.
     """
     if align_df is None or align_df.empty:
         return "_No alignment results available._"
 
     lines: List[str] = ["### Recommendation → Gap Alignment"]
+
     for rec_id, sub in align_df.groupby("rec_id", sort=False):
+
+        # Pull recommendation + overview once per rec group
         rec_text = sub["recommendation"].iloc[0] if "recommendation" in sub.columns else rec_id
+        overview = sub["overview"].iloc[0] if "overview" in sub.columns else ""
+
         lines.append(f"\n**{rec_id} – {rec_text}**")
+
+        # Show overview if available
+        if isinstance(overview, str) and overview.strip():
+            lines.append(f"*Overview:* {overview}")
+
+        # If nothing matched
         if sub["gap_id"].fillna("").eq("").all():
             lines.append("- _No strong matching gap identified._")
-        else:
-            for _, row in sub.iterrows():
-                gid = row.get("gap_id", "")
-                gcat = row.get("gap_category", "")
-                ghead = row.get("gap_heading", "")
-                conf = row.get("confidence", "")
-                how = row.get("how_it_addresses", "")
-                rat = row.get("rationale", "")
-                label = f"{gid} – {gcat}: {ghead}" if gid else "No Match"
-                conf_str = f" (confidence {conf:.2f})" if isinstance(conf, (int, float)) else ""
-                lines.append(f"- **{label}**{conf_str}\n  - *How it addresses:* {how}\n  - *Rationale:* {rat}")
+            continue
+
+        # List gaps
+        for _, row in sub.iterrows():
+            gid = row.get("gap_id", "")
+            gcat = row.get("gap_category", "")
+            ghead = row.get("gap_heading", "")
+            conf = row.get("confidence", "")
+            how = row.get("how_it_addresses", "")
+            rat = row.get("rationale", "")
+
+            label = f"{gid} – {gcat}: {ghead}" if gid else "No Match"
+            conf_str = f" (confidence {conf:.2f})" if isinstance(conf, (int, float)) else ""
+
+            lines.append(
+                f"- **{label}**{conf_str}\n"
+                f"  - *How it addresses:* {how}\n"
+                f"  - *Rationale:* {rat}"
+            )
+
     return "\n".join(lines)
 
 
