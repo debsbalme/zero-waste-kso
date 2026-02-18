@@ -165,6 +165,62 @@ RECOMMENDATION_SET = [
         "overview": "We recommend conducting a Web Analytics Audit to ensure insights are being collected to identify the full breadth of friction points, drop-offs and gaps in user behavior tracking across your website. Accurate analytics enable data-led decisions to streamline user journeys, improve content relevance and reduce barriers to conversion. This leads to a more efficient customer experience, higher conversion rates and better ROI from existing traffic."
     },
     {
+        "set_id": "AISol_GExp",
+        "questions": [
+            {
+                "question": "Which of the following use cases is your organization currently applying AI to?",
+                "answer": [
+                    "Go-to-market (GTM) AI products or offers","Budget allocation and forecasting","Predictive modeling"
+                ],
+                "type": "negative_choice"
+            }
+        ],
+        "recommendation": "AI Solutioning Discovery Workshop - Growth & Expertise Use Cases",
+        "overview": "We recommend exploring AI use cases such as predictive modeling and forecasting to improve planning accuracy and support more informed growth and investment decisions."
+    },
+    {
+        "set_id": "AISol_ProdIUse",
+        "questions": [
+            {
+                "question": "Which of the following use cases is your organization currently applying AI to?",
+                "answer": [
+                    "Knowledge base or internal information retrieval","Sentiment analysis (e.g. customer, brand, or feedback analysis)","Training and development"
+                ],
+                "type": "negative_choice"
+            }
+        ],
+        "recommendation": "AI Solutioning Discovery Workshop - Productivity Use Cases",
+        "overview": "We recommend exploring the application of AI for knowledge management, sentiment analysis, and training to reduce manual effort and improve access to insights."
+    },
+    {
+        "set_id": "AISol_Eff",
+        "questions": [
+            {
+                "question": "Which of the following use cases is your organization currently applying AI to?",
+                "answer": [
+                    "Task or workflow automation","Sales enablement","Talent acquisition"
+                ],
+                "type": "negative_choice"
+            }
+        ],
+        "recommendation": "AI Solutioning Discovery Workshop - Efficiency Use Cases",
+        "overview": "We recommend exploring AI-driven automation across workflows, sales enablement and talent acquisition to streamline operations and improve scalability."
+    }, 
+    {
+        "set_id": "AISol_Effect",
+        "questions": [
+            {
+                "question": "Which of the following use cases is your organization currently applying AI to?",
+                "answer": [
+                    "Programmatic advertising optimization","Search engine optimization (SEO)","Customer experience (CX) personalization"
+                ],
+                "type": "negative_choice"
+            }
+        ],
+        "recommendation": "AI Solutioning Discovery Workshop - Effectiveness Use Cases",
+        "overview": "We recommend exploring AI adoption in areas such as programmatic optimization, search and CX personalization to improve relevance, performance and customer impact. "
+    },           
+    {
         "set_id": "HM_Cexp",
         "questions": [
             {
