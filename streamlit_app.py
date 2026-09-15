@@ -31,11 +31,28 @@ if "google_credentials" not in st.session_state:
 
     query_params = st.query_params
 
-    # User is returning from Google authentication
+    # ----------------------------------------
+    # Returning from Google
+    # ----------------------------------------
+
     if "code" in query_params:
 
         try:
-            flow = get_google_flow()
+
+            returned_state = query_params.get("state")
+
+            saved_state = st.session_state.get(
+                "google_oauth_state"
+            )
+
+            if saved_state and returned_state != saved_state:
+                raise ValueError(
+                    "Google OAuth state does not match."
+                )
+
+            flow = get_google_flow(
+                state=returned_state
+            )
 
             flow.fetch_token(
                 code=query_params["code"]
@@ -50,24 +67,30 @@ if "google_credentials" not in st.session_state:
                 "client_secret": credentials.client_secret,
             }
 
-            # Remove Google's ?code=... from the URL
             st.query_params.clear()
 
             st.rerun()
 
         except Exception as e:
+
             st.error(
                 f"Google authentication failed: {e}"
             )
+
+    # ----------------------------------------
+    # Not authenticated
+    # ----------------------------------------
 
     else:
 
         flow = get_google_flow()
 
-        authorization_url, state = flow.authorization_url(
-            access_type="offline",
-            include_granted_scopes="true",
-            prompt="consent",
+        authorization_url, state = (
+            flow.authorization_url(
+                access_type="offline",
+                include_granted_scopes="true",
+                prompt="consent",
+            )
         )
 
         st.session_state.google_oauth_state = state

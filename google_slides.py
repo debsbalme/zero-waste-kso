@@ -5,7 +5,6 @@ import pandas as pd
 
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import Flow
 
 
 
@@ -589,12 +588,9 @@ def verify_drive_access(
 
         except Exception as e:
             raise RuntimeError(
-                "The Google service account cannot access "
+                "Your Google account cannot access "
                 f"the output folder.\n\n"
                 f"Folder ID: {output_folder_id}\n\n"
-                "Share the Google Drive folder with the "
-                "service-account email address, or remove "
-                "SLIDES_OUTPUT_FOLDER_ID for now.\n\n"
                 f"Google error: {e}"
             )
 

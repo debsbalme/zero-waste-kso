@@ -1,5 +1,4 @@
 import streamlit as st
-
 from google_auth_oauthlib.flow import Flow
 
 
@@ -9,7 +8,7 @@ SCOPES = [
 ]
 
 
-def get_google_flow():
+def get_google_flow(state=None):
 
     client_config = {
         "web": {
@@ -34,6 +33,7 @@ def get_google_flow():
     flow = Flow.from_client_config(
         client_config,
         scopes=SCOPES,
+        state=state,
     )
 
     flow.redirect_uri = (
