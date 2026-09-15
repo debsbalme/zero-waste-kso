@@ -444,6 +444,11 @@ def create_maturity_presentation(
         service_account_info
     )
 
+    verify_drive_access(
+        drive_service=drive_service,
+        template_id=template_id,
+        output_folder_id=output_folder_id,
+)
     # ----------------------------------------
     # Create copy of template
     # ----------------------------------------
@@ -515,3 +520,75 @@ def create_maturity_presentation(
             f"{presentation_id}/edit"
         ),
     }
+
+def verify_drive_access(
+    drive_service,
+    template_id,
+    output_folder_id=None,
+):
+    """
+    Verify that the service account can access the
+    template and optional output folder.
+    """
+
+    results = {}
+
+    # -----------------------------
+    # Template
+    # -----------------------------
+
+    try:
+        template = drive_service.files().get(
+            fileId=template_id,
+            fields="id,name,mimeType",
+            supportsAllDrives=True,
+        ).execute()
+
+        results["template"] = template
+
+    except Exception as e:
+        raise RuntimeError(
+            "The Google service account cannot access "
+            f"the Slides template.\n\n"
+            f"Template ID: {template_id}\n\n"
+            "Make sure the template is a native Google Slides "
+            "presentation and is shared with the service-account "
+            "email address.\n\n"
+            f"Google error: {e}"
+        )
+
+    # -----------------------------
+    # Output folder
+    # -----------------------------
+
+    if output_folder_id:
+
+        try:
+            folder = drive_service.files().get(
+                fileId=output_folder_id,
+                fields="id,name,mimeType",
+                supportsAllDrives=True,
+            ).execute()
+
+            if folder.get("mimeType") != \
+                    "application/vnd.google-apps.folder":
+
+                raise RuntimeError(
+                    f"SLIDES_OUTPUT_FOLDER_ID is not a folder. "
+                    f"Google returned: {folder.get('name')}"
+                )
+
+            results["folder"] = folder
+
+        except Exception as e:
+            raise RuntimeError(
+                "The Google service account cannot access "
+                f"the output folder.\n\n"
+                f"Folder ID: {output_folder_id}\n\n"
+                "Share the Google Drive folder with the "
+                "service-account email address, or remove "
+                "SLIDES_OUTPUT_FOLDER_ID for now.\n\n"
+                f"Google error: {e}"
+            )
+
+    return results    
