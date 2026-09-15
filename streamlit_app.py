@@ -46,6 +46,7 @@ def main():
     now = datetime.now()
     formatted_date_time = now.strftime("%Y-%m-%d")
 
+
     st.image('acx_logo.png', width=100)
     st.title("Maturity Matrix / Zero Waste Assessment Analysis")
     st.write(f"The current date is: **{formatted_date_time}**")
