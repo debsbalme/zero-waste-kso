@@ -4,6 +4,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+from google_auth import get_google_flow
 
 # ---------- Imports from your analysis module ----------
 from recommendations import (
@@ -22,6 +23,65 @@ from recommendations import (
 
 from google_slides import create_maturity_presentation
 
+# ============================================================
+# GOOGLE OAUTH
+# ============================================================
+
+if "google_credentials" not in st.session_state:
+
+    query_params = st.query_params
+
+    # User is returning from Google authentication
+    if "code" in query_params:
+
+        try:
+            flow = get_google_flow()
+
+            flow.fetch_token(
+                code=query_params["code"]
+            )
+
+            credentials = flow.credentials
+
+            st.session_state.google_credentials = {
+                "token": credentials.token,
+                "refresh_token": credentials.refresh_token,
+                "client_id": credentials.client_id,
+                "client_secret": credentials.client_secret,
+            }
+
+            # Remove Google's ?code=... from the URL
+            st.query_params.clear()
+
+            st.rerun()
+
+        except Exception as e:
+            st.error(
+                f"Google authentication failed: {e}"
+            )
+
+    else:
+
+        flow = get_google_flow()
+
+        authorization_url, state = flow.authorization_url(
+            access_type="offline",
+            include_granted_scopes="true",
+            prompt="consent",
+        )
+
+        st.session_state.google_oauth_state = state
+
+        st.info(
+            "Connect Google Drive to create "
+            "Google Slides presentations."
+        )
+
+        st.link_button(
+            "🔐 Connect Google Drive",
+            authorization_url,
+        )
+        
 # ---------- UI helpers ----------
 
 def display_breadcrumb(step: int):
@@ -288,16 +348,13 @@ def main():
 
                                 result = create_maturity_presentation(
 
-                                    service_account_info=
-                                        st.secrets["google_service_account"],
+                                    credentials_dict=
+                                        st.session_state["google_credentials"],
 
                                     template_id=
                                         st.secrets["SLIDES_TEMPLATE_ID"],
 
-                                    output_folder_id=
-                                        st.secrets.get(
-                                            "SLIDES_OUTPUT_FOLDER_ID"
-                                        ),
+                                    output_folder_id=None,
 
                                     client_name=client_name,
 
