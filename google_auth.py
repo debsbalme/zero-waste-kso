@@ -8,7 +8,11 @@ SCOPES = [
 ]
 
 
-def get_google_flow(state=None):
+def get_google_flow(
+    state=None,
+    code_verifier=None,
+    autogenerate_code_verifier=False,
+):
 
     client_config = {
         "web": {
@@ -34,6 +38,8 @@ def get_google_flow(state=None):
         client_config,
         scopes=SCOPES,
         state=state,
+        code_verifier=code_verifier,
+        autogenerate_code_verifier=autogenerate_code_verifier,
     )
 
     flow.redirect_uri = (
