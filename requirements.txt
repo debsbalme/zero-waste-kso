@@ -3,3 +3,6 @@ openai>=1.0.0
 pandas
 fpdf
 typing
+google-api-python-client
+google-auth
+google-auth-httplib2

@@ -20,6 +20,7 @@ from recommendations import (
     alignment_df_to_markdown     # <-- Make sure this helper exists in recommendations.py
 )
 
+from google_slides import create_maturity_presentation
 
 # ---------- UI helpers ----------
 
@@ -51,7 +52,11 @@ def main():
     st.write(
         "Upload a CSV of the Assessment results and step through: executive summary, category summary, bullets, gaps, drivers, and recommendations."
     )
-
+    client_name = st.text_input(
+      "Client / Advertiser Name",
+     key="client_name",
+      placeholder="Enter client name",
+)
     uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
 
     if uploaded_file is not None:
@@ -201,6 +206,133 @@ def main():
                     # Readable Markdown view
                     st.markdown("**Readable Alignment (Markdown View)**")
                     st.markdown(alignment_df_to_markdown(align_df))
+
+                st.divider()
+
+                st.subheader("📊 Google Slides Report")
+
+                client_name = st.session_state.get(
+                    "client_name",
+                    ""
+                )
+
+                if not client_name:
+                    st.warning(
+                        "Enter a Client / Advertiser Name before "
+                        "creating the presentation."
+                    )
+
+                else:
+
+                    if st.button(
+                        "Create Google Slides Presentation",
+                        type="primary",
+                    ):
+
+                        try:
+
+                            with st.spinner(
+                                "Creating Google Slides presentation..."
+                            ):
+
+                                # -----------------------------------------
+                                # Executive Summary
+                                # -----------------------------------------
+
+                                executive_themes = st.session_state.get(
+                                    "exec_themes_md",
+                                    "",
+                                )
+
+                                executive_gaps = st.session_state.get(
+                                    "exec_gaps_md",
+                                    "",
+                                )
+
+                                executive_summary = (
+                                    "KEY OPPORTUNITIES\n\n"
+                                    f"{executive_themes}\n\n"
+                                    "PRIORITY MATURITY GAPS\n\n"
+                                    f"{executive_gaps}"
+                                )
+
+                                # -----------------------------------------
+                                # Maturity Gaps
+                                # -----------------------------------------
+
+                                gaps_df = st.session_state.get(
+                                    "maturity_gap_df"
+                                )
+
+                                # Fallback to gaps already generated
+                                # during Executive Summary
+                                if gaps_df is None or gaps_df.empty:
+                                    gaps_df = st.session_state.get(
+                                        "exec_gaps_df",
+                                        pd.DataFrame(),
+                                    )
+
+                                # -----------------------------------------
+                                # Maturity Drivers
+                                # -----------------------------------------
+
+                                drivers_df = st.session_state.get(
+                                    "maturity_drivers_df",
+                                    pd.DataFrame(),
+                                )
+
+                                # -----------------------------------------
+                                # Create Slides
+                                # -----------------------------------------
+
+                                result = create_maturity_presentation(
+
+                                    service_account_info=
+                                        st.secrets["google_service_account"],
+
+                                    template_id=
+                                        st.secrets["SLIDES_TEMPLATE_ID"],
+
+                                    output_folder_id=
+                                        st.secrets.get(
+                                            "SLIDES_OUTPUT_FOLDER_ID"
+                                        ),
+
+                                    client_name=client_name,
+
+                                    executive_summary=
+                                        executive_summary,
+
+                                    gaps_df=
+                                        gaps_df,
+
+                                    drivers_df=
+                                        drivers_df,
+                                )
+
+                                st.session_state[
+                                    "presentation_url"
+                                ] = result["url"]
+
+                            st.success(
+                                "Presentation created successfully."
+                            )
+
+                        except Exception as e:
+
+                            st.error(
+                                f"Unable to create presentation: {e}"
+                            )
+
+                if st.session_state.get("presentation_url"):
+
+                    st.link_button(
+                        "Open Google Slides Presentation",
+                        st.session_state["presentation_url"],
+                    )
+
+
+
 
         except Exception as e:
             st.error(f"An error occurred while processing the CSV file: {e}")
