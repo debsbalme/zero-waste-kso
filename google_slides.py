@@ -323,46 +323,89 @@ def create_gap_slides(
 
     rows = gaps_df.to_dict("records")
 
-    #
-    # Duplicate in reverse.
-    #
-    # Google Slides places each duplicate immediately after
-    # the original template slide. Reversing the input keeps
-    # the final deck in the correct order.
-    #
-    for row in reversed(rows):
+    # ========================================================
+    # STEP 1
+    # Duplicate ALL required slides in ONE API call
+    # ========================================================
 
-        new_slide_id = duplicate_slide(
-            slides_service,
-            presentation_id,
-            template_slide_id,
-        )
+    duplicate_requests = []
 
-        replace_text_on_slide(
-            slides_service,
-            presentation_id,
-            new_slide_id,
-            {
-                "{{GAP_CATEGORY}}":
-                    row.get("Category", ""),
+    for _ in rows:
+        duplicate_requests.append({
+            "duplicateObject": {
+                "objectId": template_slide_id
+            }
+        })
 
-                "{{HEADING}}":
-                    row.get("Heading", ""),
+    response = slides_service.presentations().batchUpdate(
+        presentationId=presentation_id,
+        body={"requests": duplicate_requests},
+    ).execute()
 
-                "{{CONTEXT}}":
-                    row.get("Context", ""),
+    # Get IDs of newly-created slides
+    new_slide_ids = [
+        reply["duplicateObject"]["objectId"]
+        for reply in response["replies"]
+    ]
 
-                "{{IMPACT}}":
-                    row.get("Impact", ""),
-            },
-        )
+    # Google inserts duplicates after the template.
+    # Reverse to preserve dataframe ordering.
+    new_slide_ids.reverse()
 
-    # Delete the blank template after all copies exist
-    delete_slide(
-        slides_service,
-        presentation_id,
-        template_slide_id,
-    )
+    # ========================================================
+    # STEP 2
+    # Populate ALL slides in ONE API call
+    # ========================================================
+
+    populate_requests = []
+
+    for slide_id, row in zip(new_slide_ids, rows):
+
+        replacements = {
+            "{{GAP_CATEGORY}}":
+                row.get("Category", ""),
+
+            "{{HEADING}}":
+                row.get("Heading", ""),
+
+            "{{CONTEXT}}":
+                row.get("Context", ""),
+
+            "{{IMPACT}}":
+                row.get("Impact", ""),
+        }
+
+        for placeholder, value in replacements.items():
+
+            if value is None:
+                value = ""
+
+            if isinstance(value, float) and pd.isna(value):
+                value = ""
+
+            populate_requests.append({
+                "replaceAllText": {
+                    "containsText": {
+                        "text": placeholder,
+                        "matchCase": True,
+                    },
+                    "replaceText": str(value),
+                    "pageObjectIds": [slide_id],
+                }
+            })
+
+    # Also delete the blank template
+    populate_requests.append({
+        "deleteObject": {
+            "objectId": template_slide_id
+        }
+    })
+
+    slides_service.presentations().batchUpdate(
+        presentationId=presentation_id,
+        body={"requests": populate_requests},
+    ).execute()
+
 
 
 # ============================================================
@@ -398,39 +441,88 @@ def create_driver_slides(
 
     rows = drivers_df.to_dict("records")
 
-    for row in reversed(rows):
+    # ========================================================
+    # STEP 1
+    # Duplicate all driver slides
+    # ========================================================
 
-        new_slide_id = duplicate_slide(
-            slides_service,
-            presentation_id,
-            template_slide_id,
-        )
+    duplicate_requests = []
 
-        replace_text_on_slide(
-            slides_service,
-            presentation_id,
-            new_slide_id,
-            {
-                "{{DRIVER_CATEGORY}}":
-                    row.get("Category", ""),
+    for _ in rows:
+        duplicate_requests.append({
+            "duplicateObject": {
+                "objectId": template_slide_id
+            }
+        })
 
-                "{{HEADING}}":
-                    row.get("Heading", ""),
+    response = slides_service.presentations().batchUpdate(
+        presentationId=presentation_id,
+        body={"requests": duplicate_requests},
+    ).execute()
 
-                "{{CONTEXT}}":
-                    row.get("Context", ""),
+    new_slide_ids = [
+        reply["duplicateObject"]["objectId"]
+        for reply in response["replies"]
+    ]
 
-                "{{IMPACT}}":
-                    row.get("Impact", ""),
-            },
-        )
+    new_slide_ids.reverse()
 
-    delete_slide(
-        slides_service,
-        presentation_id,
-        template_slide_id,
-    )
+    # ========================================================
+    # STEP 2
+    # Populate all driver slides
+    # ========================================================
 
+    populate_requests = []
+
+    for slide_id, row in zip(
+        new_slide_ids,
+        rows,
+    ):
+
+        replacements = {
+            "{{DRIVER_CATEGORY}}":
+                row.get("Category", ""),
+
+            "{{HEADING}}":
+                row.get("Heading", ""),
+
+            "{{CONTEXT}}":
+                row.get("Context", ""),
+
+            "{{IMPACT}}":
+                row.get("Impact", ""),
+        }
+
+        for placeholder, value in replacements.items():
+
+            if value is None:
+                value = ""
+
+            if isinstance(value, float) and pd.isna(value):
+                value = ""
+
+            populate_requests.append({
+                "replaceAllText": {
+                    "containsText": {
+                        "text": placeholder,
+                        "matchCase": True,
+                    },
+                    "replaceText": str(value),
+                    "pageObjectIds": [slide_id],
+                }
+            })
+
+    # Delete original blank template
+    populate_requests.append({
+        "deleteObject": {
+            "objectId": template_slide_id
+        }
+    })
+
+    slides_service.presentations().batchUpdate(
+        presentationId=presentation_id,
+        body={"requests": populate_requests},
+    ).execute()
 
 # ============================================================
 # MAIN REPORT FUNCTION
